@@ -1,0 +1,19 @@
+[package]
+name = "luminance-glow"
+version = "0.0.0"
+license = "BSD-3-Clause"
+authors = ["Dimitri Sabadie <dimitri.sabadie@gmail.com>"]
+description = "Multi-GL backend for luminance using Glow"
+keywords = ["stateless", "type-safe", "graphics", "luminance", "webgl", "opengl"]
+categories = ["rendering::graphics-api"]
+homepage = "https://github.com/phaazon/luminance-rs"
+repository = "https://github.com/phaazon/luminance-rs"
+documentation = "https://docs.rs/luminance-webgl"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+luminance = "0.43"
+serde = "1"
+serde_derive = "1"
+glow = "0.8.1"
