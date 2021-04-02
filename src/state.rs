@@ -595,16 +595,14 @@ impl Drop for GlowState {
     }
 }
 
-/// An error that might happen when the context is queried.
+/// An error that might happen when the context is queried
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum StateQueryError {
-    /// The [`GlowState`] object is unavailable.
+    /// The Glow state object is unavailable.
     ///
     /// That might occur if the current thread doesn’t support allocating a new graphics state. It
     /// might happen if you try to have more than one state on the same thread, for instance.
-    ///
-    /// [`GlowState`]: crate::glow2::state::GlowState
     UnavailableGlowState,
     /// Unknown array buffer initial state.
     UnknownArrayBufferInitialState,
