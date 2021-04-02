@@ -1,4 +1,4 @@
-//! Shader support for GlowBackend.
+//! Shader support for Glow.
 
 use luminance::backend::shader::{Shader, Uniformable};
 use luminance::pipeline::{BufferBinding, TextureBinding};
@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::state::GlowState;
-use crate::GlowBackend;
+use crate::Glow;
 use glow::HasContext;
 
 #[derive(Debug)]
@@ -33,7 +33,7 @@ impl Drop for Stage {
 }
 
 impl Stage {
-    fn new(glow_backend: &mut GlowBackend, ty: StageType, src: &str) -> Result<Self, StageError> {
+    fn new(glow_backend: &mut Glow, ty: StageType, src: &str) -> Result<Self, StageError> {
         unsafe {
             let state = glow_backend.state.borrow();
 
@@ -94,7 +94,7 @@ impl Drop for Program {
 
 impl Program {
     fn new(
-        glow2: &mut GlowBackend,
+        glow2: &mut Glow,
         vertex: &Stage,
         tess: Option<TessellationStages<Stage>>,
         geometry: Option<&Stage>,
@@ -179,7 +179,7 @@ impl UniformBuilder {
 
     fn ask_uniform<T>(&mut self, name: &str) -> Result<Uniform<T>, UniformWarning>
     where
-        T: Uniformable<GlowBackend>,
+        T: Uniformable<Glow>,
     {
         unsafe {
             let location = self
@@ -206,7 +206,7 @@ impl UniformBuilder {
 
     fn ask_uniform_block<T>(&self, name: &str) -> Result<Uniform<T>, UniformWarning>
     where
-        T: Uniformable<GlowBackend>,
+        T: Uniformable<Glow>,
     {
         unsafe {
             let location = self
@@ -222,7 +222,7 @@ impl UniformBuilder {
     }
 }
 
-unsafe impl Shader for GlowBackend {
+unsafe impl Shader for Glow {
     type StageRepr = Stage;
 
     type ProgramRepr = Program;
@@ -462,7 +462,7 @@ fn get_vertex_attrib_location(
 // I’m so sorry.
 macro_rules! impl_Uniformable {
     (&[[$t:ty; $dim:expr]], $uty:tt, $f:tt) => {
-        unsafe impl<'a> Uniformable<GlowBackend> for &'a [[$t; $dim]] {
+        unsafe impl<'a> Uniformable<Glow> for &'a [[$t; $dim]] {
             unsafe fn ty() -> UniformType {
                 UniformType::$uty
             }
@@ -480,7 +480,7 @@ macro_rules! impl_Uniformable {
     };
 
     (&[$t:ty], $uty:tt, $f:tt) => {
-        unsafe impl<'a> Uniformable<GlowBackend> for &'a [$t] {
+        unsafe impl<'a> Uniformable<Glow> for &'a [$t] {
             unsafe fn ty() -> UniformType {
                 UniformType::$uty
             }
@@ -496,7 +496,7 @@ macro_rules! impl_Uniformable {
     };
 
     ([$t:ty; 1], $uty:tt, $f:tt) => {
-        unsafe impl Uniformable<GlowBackend> for [$t; 1] {
+        unsafe impl Uniformable<Glow> for [$t; 1] {
             unsafe fn ty() -> UniformType {
                 UniformType::$uty
             }
@@ -512,7 +512,7 @@ macro_rules! impl_Uniformable {
     };
 
     ([$t:ty; 2], $uty:tt, $f:tt) => {
-        unsafe impl Uniformable<GlowBackend> for [$t; 2] {
+        unsafe impl Uniformable<Glow> for [$t; 2] {
             unsafe fn ty() -> UniformType {
                 UniformType::$uty
             }
@@ -528,7 +528,7 @@ macro_rules! impl_Uniformable {
     };
 
     ([$t:ty; 3], $uty:tt, $f:tt) => {
-        unsafe impl Uniformable<GlowBackend> for [$t; 3] {
+        unsafe impl Uniformable<Glow> for [$t; 3] {
             unsafe fn ty() -> UniformType {
                 UniformType::$uty
             }
@@ -545,7 +545,7 @@ macro_rules! impl_Uniformable {
     };
 
     ([$t:ty; 4], $uty:tt, $f:tt) => {
-        unsafe impl Uniformable<GlowBackend> for [$t; 4] {
+        unsafe impl Uniformable<Glow> for [$t; 4] {
             unsafe fn ty() -> UniformType {
                 UniformType::$uty
             }
@@ -563,7 +563,7 @@ macro_rules! impl_Uniformable {
     };
 
     ($t:ty, $uty:tt, $f:tt) => {
-        unsafe impl Uniformable<GlowBackend> for $t {
+        unsafe impl Uniformable<Glow> for $t {
             unsafe fn ty() -> UniformType {
                 UniformType::$uty
             }
@@ -580,7 +580,7 @@ macro_rules! impl_Uniformable {
 
     // matrix notation
     (mat & $t:ty ; $dim:expr, $uty:tt, $f:tt) => {
-        unsafe impl<'a> Uniformable<GlowBackend> for &'a [[[$t; $dim]; $dim]] {
+        unsafe impl<'a> Uniformable<Glow> for &'a [[[$t; $dim]; $dim]] {
             unsafe fn ty() -> UniformType {
                 UniformType::$uty
             }
@@ -598,7 +598,7 @@ macro_rules! impl_Uniformable {
     };
 
     (mat $t:ty ; $dim:expr, $uty:tt, $f:tt) => {
-        unsafe impl Uniformable<GlowBackend> for [[$t; $dim]; $dim] {
+        unsafe impl Uniformable<Glow> for [[$t; $dim]; $dim] {
             unsafe fn ty() -> UniformType {
                 UniformType::$uty
             }
@@ -657,7 +657,7 @@ impl_Uniformable!(mat & f32; 4, M44, uniform_matrix_4_f32_slice);
 // Special exception for booleans: because we cannot simply send the bool Rust type down to the GPU,
 // we have to convert them to 32-bit integer (unsigned), which is lame, but well, WebGL / OpenGL,
 // whatcha wanna do.
-unsafe impl Uniformable<GlowBackend> for bool {
+unsafe impl Uniformable<Glow> for bool {
     unsafe fn ty() -> UniformType {
         UniformType::Bool
     }
@@ -670,7 +670,7 @@ unsafe impl Uniformable<GlowBackend> for bool {
     }
 }
 
-unsafe impl Uniformable<GlowBackend> for [bool; 2] {
+unsafe impl Uniformable<Glow> for [bool; 2] {
     unsafe fn ty() -> UniformType {
         UniformType::BVec2
     }
@@ -684,7 +684,7 @@ unsafe impl Uniformable<GlowBackend> for [bool; 2] {
     }
 }
 
-unsafe impl Uniformable<GlowBackend> for [bool; 3] {
+unsafe impl Uniformable<Glow> for [bool; 3] {
     unsafe fn ty() -> UniformType {
         UniformType::BVec3
     }
@@ -699,7 +699,7 @@ unsafe impl Uniformable<GlowBackend> for [bool; 3] {
     }
 }
 
-unsafe impl Uniformable<GlowBackend> for [bool; 4] {
+unsafe impl Uniformable<Glow> for [bool; 4] {
     unsafe fn ty() -> UniformType {
         UniformType::BVec4
     }
@@ -715,7 +715,7 @@ unsafe impl Uniformable<GlowBackend> for [bool; 4] {
     }
 }
 
-unsafe impl<'a> Uniformable<GlowBackend> for &'a [bool] {
+unsafe impl<'a> Uniformable<Glow> for &'a [bool] {
     unsafe fn ty() -> UniformType {
         UniformType::Bool
     }
@@ -731,7 +731,7 @@ unsafe impl<'a> Uniformable<GlowBackend> for &'a [bool] {
     }
 }
 
-unsafe impl<'a> Uniformable<GlowBackend> for &'a [[bool; 2]] {
+unsafe impl<'a> Uniformable<Glow> for &'a [[bool; 2]] {
     unsafe fn ty() -> UniformType {
         UniformType::BVec2
     }
@@ -748,7 +748,7 @@ unsafe impl<'a> Uniformable<GlowBackend> for &'a [[bool; 2]] {
     }
 }
 
-unsafe impl<'a> Uniformable<GlowBackend> for &'a [[bool; 3]] {
+unsafe impl<'a> Uniformable<Glow> for &'a [[bool; 3]] {
     unsafe fn ty() -> UniformType {
         UniformType::BVec3
     }
@@ -768,7 +768,7 @@ unsafe impl<'a> Uniformable<GlowBackend> for &'a [[bool; 3]] {
     }
 }
 
-unsafe impl<'a> Uniformable<GlowBackend> for &'a [[bool; 4]] {
+unsafe impl<'a> Uniformable<Glow> for &'a [[bool; 4]] {
     unsafe fn ty() -> UniformType {
         UniformType::BVec4
     }
@@ -788,7 +788,7 @@ unsafe impl<'a> Uniformable<GlowBackend> for &'a [[bool; 4]] {
     }
 }
 
-unsafe impl<T> Uniformable<GlowBackend> for BufferBinding<T> {
+unsafe impl<T> Uniformable<Glow> for BufferBinding<T> {
     unsafe fn ty() -> UniformType {
         UniformType::BufferBinding
     }
@@ -802,7 +802,7 @@ unsafe impl<T> Uniformable<GlowBackend> for BufferBinding<T> {
     }
 }
 
-unsafe impl<D, S> Uniformable<GlowBackend> for TextureBinding<D, S>
+unsafe impl<D, S> Uniformable<Glow> for TextureBinding<D, S>
 where
     D: Dimensionable,
     S: SamplerType,

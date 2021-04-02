@@ -1,4 +1,4 @@
-//! Framebuffer support for WebGL2.
+//! Framebuffer support for Glow.
 
 use luminance::backend::color_slot::ColorSlot;
 use luminance::backend::depth_slot::DepthSlot;
@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::state::GlowState;
-use crate::GlowBackend;
+use crate::Glow;
 use glow::HasContext;
 
 pub struct Framebuffer<D>
@@ -37,7 +37,7 @@ where
     }
 }
 
-unsafe impl<D> FramebufferBackend<D> for GlowBackend
+unsafe impl<D> FramebufferBackend<D> for Glow
 where
     D: Dimensionable,
 {
@@ -191,14 +191,14 @@ fn get_framebuffer_status(state: &mut GlowState) -> Result<(), IncompleteReason>
                 Err(IncompleteReason::IncompleteMultisample)
             }
             _ => panic!(
-                "unknown WebGL2 framebuffer incomplete status! status={}",
+                "unknown Glow framebuffer incomplete status! status={}",
                 status
             ),
         }
     }
 }
 
-unsafe impl FramebufferBackBuffer for GlowBackend {
+unsafe impl FramebufferBackBuffer for Glow {
     unsafe fn back_buffer(
         &mut self,
         size: <Dim2 as Dimensionable>::Size,

@@ -599,13 +599,13 @@ impl Drop for GlowState {
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum StateQueryError {
-    /// The [`WebGL2State`] object is unavailable.
+    /// The [`GlowState`] object is unavailable.
     ///
     /// That might occur if the current thread doesn’t support allocating a new graphics state. It
     /// might happen if you try to have more than one state on the same thread, for instance.
     ///
-    /// [`WebGL2State`]: crate::glow2::state::WebGL2State
-    UnavailableWebGL2State,
+    /// [`GlowState`]: crate::glow2::state::GlowState
+    UnavailableGlowState,
     /// Unknown array buffer initial state.
     UnknownArrayBufferInitialState,
     /// Unknown viewport initial state.
@@ -616,20 +616,20 @@ pub enum StateQueryError {
     UnknownDepthWriteMaskState,
     /// Corrupted blending equation.
     UnknownBlendingEquation(u32),
-    /// RGB blending equation couldn’t be retrieved when initializing the WebGL2 state.
+    /// RGB blending equation couldn’t be retrieved when initializing the Glow state.
     CannotRetrieveBlendingEquationRGB,
-    /// Alpha blending equation couldn’t be retrieved when initializing the WebGL2 state.
+    /// Alpha blending equation couldn’t be retrieved when initializing the Glow state.
     CannotRetrieveBlendingEquationAlpha,
-    /// Source RGB factor couldn’t be retrieved when initializing the WebGL2 state.
+    /// Source RGB factor couldn’t be retrieved when initializing the Glow state.
     CannotRetrieveBlendingSrcFactorRGB,
-    /// Source alpha factor couldn’t be retrieved when initializing the WebGL2 state.
+    /// Source alpha factor couldn’t be retrieved when initializing the Glow state.
     CannotRetrieveBlendingSrcFactorAlpha,
-    /// Destination RGB factor couldn’t be retrieved when initializing the WebGL2 state.
+    /// Destination RGB factor couldn’t be retrieved when initializing the Glow state.
     CannotRetrieveBlendingDstFactorRGB,
-    /// Destination alpha factor couldn’t be retrieved when initializing the WebGL2 state.
+    /// Destination alpha factor couldn’t be retrieved when initializing the Glow state.
     CannotRetrieveBlendingDstFactorAlpha,
     /// Required WebGL extensions cannot be enabled
-    CannotRetrieveRequiredWebGL2Extensions(Vec<String>),
+    CannotRetrieveRequiredGlowExtensions(Vec<String>),
     /// Corrupted blending source factor (RGB).
     UnknownBlendingSrcFactorRGB(u32),
     /// Corrupted blending source factor (alpha).
@@ -649,7 +649,7 @@ pub enum StateQueryError {
 impl fmt::Display for StateQueryError {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match *self {
-            StateQueryError::UnavailableWebGL2State => write!(f, "unavailable graphics state"),
+            StateQueryError::UnavailableGlowState => write!(f, "unavailable graphics state"),
 
             StateQueryError::UnknownArrayBufferInitialState => {
                 write!(f, "unknown array buffer initial state")
@@ -695,9 +695,9 @@ impl fmt::Display for StateQueryError {
                 f.write_str("cannot retrieve blending destination factor (alpha)")
             }
 
-            StateQueryError::CannotRetrieveRequiredWebGL2Extensions(ref extensions) => write!(
+            StateQueryError::CannotRetrieveRequiredGlowExtensions(ref extensions) => write!(
                 f,
-                "missing WebGL2 extensions: [{}]",
+                "missing Glow extensions: [{}]",
                 extensions.join(", ").as_str()
             ),
 
@@ -940,7 +940,7 @@ fn get_ctx_scissor_region(ctx: &mut glow::Context) -> Result<ScissorRegion, Stat
 //             .map(|e| e.to_string())
 //             .collect();
 
-//         return Err(StateQueryError::CannotRetrieveRequiredWebGL2Extensions(
+//         return Err(StateQueryError::CannotRetrieveRequiredGlowExtensions(
 //             missing_extensions,
 //         ));
 //     }

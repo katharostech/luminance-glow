@@ -12,7 +12,7 @@ use std::slice;
 
 use crate::pixel::glow_pixel_format;
 use crate::state::GlowState;
-use crate::GlowBackend;
+use crate::Glow;
 
 pub struct Texture {
     pub(crate) handle: glow::Texture,
@@ -35,11 +35,11 @@ impl Drop for Texture {
     }
 }
 
-unsafe impl TextureBase for GlowBackend {
+unsafe impl TextureBase for Glow {
     type TextureRepr = Texture;
 }
 
-unsafe impl<D, P> TextureBackend<D, P> for GlowBackend
+unsafe impl<D, P> TextureBackend<D, P> for Glow
 where
     D: Dimensionable,
     P: Pixel,
@@ -207,7 +207,7 @@ where
         let mut gfx_state = texture.state.borrow_mut();
         gfx_state.bind_texture(texture.target, Some(texture.handle));
 
-        // Retrieve the size of the texture (w and h); GlowBackend doesn’t support the
+        // Retrieve the size of the texture (w and h); Glow doesn’t support the
         // glGetTexLevelParameteriv function (I know it’s fucking surprising), so we have to implement
         // a workaround and store that value on the CPU side.
         let w = D::width(size);
@@ -217,7 +217,7 @@ where
         let skip_bytes = (pf.format.size() * w as usize) % 8;
         set_pack_alignment(&mut gfx_state, skip_bytes);
 
-        // We need a workaround to get the texel data, because GlowBackend doesn’t support the glGetTexImage
+        // We need a workaround to get the texel data, because Glow doesn’t support the glGetTexImage
         // function. The idea is that we are using a special read framebuffer that is always around and
         // on which we can attach the texture we want to read the texels from.
         match gfx_state.create_or_get_readback_framebuffer() {

@@ -1,4 +1,4 @@
-//! GlowBackend tessellation implementation.
+//! Glow tessellation implementation.
 
 use luminance::backend::buffer::BufferSlice as _;
 use luminance::backend::tess::{
@@ -19,7 +19,7 @@ use std::rc::Rc;
 
 use crate::buffer::{Buffer, BufferSlice, BufferSliceMut};
 use crate::state::{Bind, GlowState};
-use crate::GlowBackend;
+use crate::Glow;
 use glow::HasContext;
 
 #[derive(Debug)]
@@ -31,7 +31,7 @@ where
     mode: u32,
     vert_nb: usize,
     inst_nb: usize,
-    // A small note: GlowBackend doesn’t support custom primitive restart index; it assumes the maximum
+    // A small note: Glow doesn’t support custom primitive restart index; it assumes the maximum
     // value of I as being that restart index.
     index_buffer: Option<Buffer<I>>,
     state: Rc<RefCell<GlowState>>,
@@ -119,7 +119,7 @@ where
     instance_buffer: Option<Buffer<W>>,
 }
 
-unsafe impl<V, I, W> TessBackend<V, I, W, Interleaved> for GlowBackend
+unsafe impl<V, I, W> TessBackend<V, I, W, Interleaved> for Glow
 where
     V: TessVertexData<Interleaved, Data = Vec<V>>,
     I: TessIndex,
@@ -187,7 +187,7 @@ where
     }
 }
 
-unsafe impl<V, I, W> VertexSliceBackend<V, I, W, Interleaved, V> for GlowBackend
+unsafe impl<V, I, W> VertexSliceBackend<V, I, W, Interleaved, V> for Glow
 where
     V: TessVertexData<Interleaved, Data = Vec<V>>,
     I: TessIndex,
@@ -198,7 +198,7 @@ where
 
     unsafe fn vertices(tess: &mut Self::TessRepr) -> Result<Self::VertexSliceRepr, TessMapError> {
         match tess.vertex_buffer {
-            Some(ref vb) => Ok(GlowBackend::slice_buffer(vb)?),
+            Some(ref vb) => Ok(Glow::slice_buffer(vb)?),
             None => Err(TessMapError::forbidden_attributeless_mapping()),
         }
     }
@@ -207,13 +207,13 @@ where
         tess: &mut Self::TessRepr,
     ) -> Result<Self::VertexSliceMutRepr, TessMapError> {
         match tess.vertex_buffer {
-            Some(ref mut vb) => Ok(GlowBackend::slice_buffer_mut(vb)?),
+            Some(ref mut vb) => Ok(Glow::slice_buffer_mut(vb)?),
             None => Err(TessMapError::forbidden_attributeless_mapping()),
         }
     }
 }
 
-unsafe impl<V, I, W> IndexSliceBackend<V, I, W, Interleaved> for GlowBackend
+unsafe impl<V, I, W> IndexSliceBackend<V, I, W, Interleaved> for Glow
 where
     V: TessVertexData<Interleaved, Data = Vec<V>>,
     I: TessIndex,
@@ -224,7 +224,7 @@ where
 
     unsafe fn indices(tess: &mut Self::TessRepr) -> Result<Self::IndexSliceRepr, TessMapError> {
         match tess.raw.index_buffer {
-            Some(ref buffer) => Ok(GlowBackend::slice_buffer(buffer)?),
+            Some(ref buffer) => Ok(Glow::slice_buffer(buffer)?),
             None => Err(TessMapError::forbidden_attributeless_mapping()),
         }
     }
@@ -233,13 +233,13 @@ where
         tess: &mut Self::TessRepr,
     ) -> Result<Self::IndexSliceMutRepr, TessMapError> {
         match tess.raw.index_buffer {
-            Some(ref mut buffer) => Ok(GlowBackend::slice_buffer_mut(buffer)?),
+            Some(ref mut buffer) => Ok(Glow::slice_buffer_mut(buffer)?),
             None => Err(TessMapError::forbidden_attributeless_mapping()),
         }
     }
 }
 
-unsafe impl<V, I, W> InstanceSliceBackend<V, I, W, Interleaved, W> for GlowBackend
+unsafe impl<V, I, W> InstanceSliceBackend<V, I, W, Interleaved, W> for Glow
 where
     V: TessVertexData<Interleaved, Data = Vec<V>>,
     I: TessIndex,
@@ -252,7 +252,7 @@ where
         tess: &mut Self::TessRepr,
     ) -> Result<Self::InstanceSliceRepr, TessMapError> {
         match tess.instance_buffer {
-            Some(ref vb) => Ok(GlowBackend::slice_buffer(vb)?),
+            Some(ref vb) => Ok(Glow::slice_buffer(vb)?),
             None => Err(TessMapError::forbidden_attributeless_mapping()),
         }
     }
@@ -261,7 +261,7 @@ where
         tess: &mut Self::TessRepr,
     ) -> Result<Self::InstanceSliceMutRepr, TessMapError> {
         match tess.instance_buffer {
-            Some(ref mut vb) => Ok(GlowBackend::slice_buffer_mut(vb)?),
+            Some(ref mut vb) => Ok(Glow::slice_buffer_mut(vb)?),
             None => Err(TessMapError::forbidden_attributeless_mapping()),
         }
     }
@@ -280,7 +280,7 @@ where
     _phantom: PhantomData<*const (V, W)>,
 }
 
-unsafe impl<V, I, W> TessBackend<V, I, W, Deinterleaved> for GlowBackend
+unsafe impl<V, I, W> TessBackend<V, I, W, Deinterleaved> for Glow
 where
     V: TessVertexData<Deinterleaved, Data = Vec<DeinterleavedData>>,
     I: TessIndex,
@@ -349,7 +349,7 @@ where
     }
 }
 
-unsafe impl<V, I, W, T> VertexSliceBackend<V, I, W, Deinterleaved, T> for GlowBackend
+unsafe impl<V, I, W, T> VertexSliceBackend<V, I, W, Deinterleaved, T> for Glow
 where
     V: TessVertexData<Deinterleaved, Data = Vec<DeinterleavedData>> + Deinterleave<T>,
     I: TessIndex,
@@ -363,7 +363,7 @@ where
             Err(TessMapError::forbidden_attributeless_mapping())
         } else {
             let buffer = &tess.vertex_buffers[V::RANK];
-            let slice = GlowBackend::slice_buffer(buffer)?.transmute();
+            let slice = Glow::slice_buffer(buffer)?.transmute();
             Ok(slice)
         }
     }
@@ -375,13 +375,13 @@ where
             Err(TessMapError::forbidden_attributeless_mapping())
         } else {
             let buffer = &mut tess.vertex_buffers[V::RANK];
-            let slice = GlowBackend::slice_buffer_mut(buffer)?.transmute();
+            let slice = Glow::slice_buffer_mut(buffer)?.transmute();
             Ok(slice)
         }
     }
 }
 
-unsafe impl<V, I, W> IndexSliceBackend<V, I, W, Deinterleaved> for GlowBackend
+unsafe impl<V, I, W> IndexSliceBackend<V, I, W, Deinterleaved> for Glow
 where
     V: TessVertexData<Deinterleaved, Data = Vec<DeinterleavedData>>,
     I: TessIndex,
@@ -392,7 +392,7 @@ where
 
     unsafe fn indices(tess: &mut Self::TessRepr) -> Result<Self::IndexSliceRepr, TessMapError> {
         match tess.raw.index_buffer {
-            Some(ref buffer) => Ok(GlowBackend::slice_buffer(buffer)?),
+            Some(ref buffer) => Ok(Glow::slice_buffer(buffer)?),
             None => Err(TessMapError::forbidden_attributeless_mapping()),
         }
     }
@@ -401,13 +401,13 @@ where
         tess: &mut Self::TessRepr,
     ) -> Result<Self::IndexSliceMutRepr, TessMapError> {
         match tess.raw.index_buffer {
-            Some(ref mut buffer) => Ok(GlowBackend::slice_buffer_mut(buffer)?),
+            Some(ref mut buffer) => Ok(Glow::slice_buffer_mut(buffer)?),
             None => Err(TessMapError::forbidden_attributeless_mapping()),
         }
     }
 }
 
-unsafe impl<V, I, W, T> InstanceSliceBackend<V, I, W, Deinterleaved, T> for GlowBackend
+unsafe impl<V, I, W, T> InstanceSliceBackend<V, I, W, Deinterleaved, T> for Glow
 where
     V: TessVertexData<Deinterleaved, Data = Vec<DeinterleavedData>>,
     I: TessIndex,
@@ -423,7 +423,7 @@ where
             Err(TessMapError::forbidden_attributeless_mapping())
         } else {
             let buffer = &tess.instance_buffers[W::RANK];
-            let slice = GlowBackend::slice_buffer(buffer)?.transmute();
+            let slice = Glow::slice_buffer(buffer)?.transmute();
             Ok(slice)
         }
     }
@@ -435,14 +435,14 @@ where
             Err(TessMapError::forbidden_attributeless_mapping())
         } else {
             let buffer = &mut tess.instance_buffers[W::RANK];
-            let slice = GlowBackend::slice_buffer_mut(buffer)?.transmute();
+            let slice = Glow::slice_buffer_mut(buffer)?.transmute();
             Ok(slice)
         }
     }
 }
 
 fn build_interleaved_vertex_buffer<V>(
-    backend: &mut GlowBackend,
+    backend: &mut Glow,
     vertices: Option<Vec<V>>,
 ) -> Result<Option<Buffer<V>>, TessError>
 where
@@ -475,7 +475,7 @@ where
 }
 
 fn build_deinterleaved_vertex_buffers<V>(
-    backend: &mut GlowBackend,
+    backend: &mut Glow,
     vertices: Option<Vec<DeinterleavedData>>,
 ) -> Result<Vec<Buffer<u8>>, TessError>
 where
@@ -506,10 +506,7 @@ where
 }
 
 /// Turn a [`Vec`] of indices to a [`Buffer`], if indices are present.
-fn build_index_buffer<I>(
-    backend: &mut GlowBackend,
-    data: Vec<I>,
-) -> Result<Option<Buffer<I>>, TessError>
+fn build_index_buffer<I>(backend: &mut Glow, data: Vec<I>) -> Result<Option<Buffer<I>>, TessError>
 where
     I: TessIndex,
 {

@@ -22,15 +22,15 @@ pub use crate::state::StateQueryError;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// The WebGL2 backend.
+/// The Glow backend.
 #[derive(Debug)]
-pub struct GlowBackend {
+pub struct Glow {
     pub(crate) state: Rc<RefCell<GlowState>>,
 }
 
-impl GlowBackend {
-    pub fn new(ctx: glow::Context) -> Result<Self, StateQueryError> {
-        GlowState::new(ctx).map(|state| GlowBackend {
+impl Glow {
+    pub fn from_context(ctx: glow::Context) -> Result<Self, StateQueryError> {
+        GlowState::new(ctx).map(|state| Glow {
             state: Rc::new(RefCell::new(state)),
         })
     }

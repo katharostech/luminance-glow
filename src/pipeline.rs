@@ -1,4 +1,4 @@
-//! Pipeline support for WebGL2.
+//! Pipeline support for Glow.
 
 use luminance::backend::pipeline::{
     Pipeline as PipelineBackend, PipelineBase, PipelineBuffer, PipelineTexture,
@@ -19,7 +19,7 @@ use std::rc::Rc;
 
 use crate::{
     state::{BlendingState, DepthTest, FaceCullingState, GlowState, ScissorState},
-    GlowBackend,
+    Glow,
 };
 
 use glow::HasContext;
@@ -69,7 +69,7 @@ where
     }
 }
 
-unsafe impl PipelineBase for GlowBackend {
+unsafe impl PipelineBase for Glow {
     type PipelineRepr = Pipeline;
 
     unsafe fn new_pipeline(&mut self) -> Result<Self::PipelineRepr, PipelineError> {
@@ -81,7 +81,7 @@ unsafe impl PipelineBase for GlowBackend {
     }
 }
 
-unsafe impl<D> PipelineBackend<D> for GlowBackend
+unsafe impl<D> PipelineBackend<D> for Glow
 where
     D: Dimensionable,
 {
@@ -141,7 +141,7 @@ where
     }
 }
 
-unsafe impl<T> PipelineBuffer<T> for GlowBackend
+unsafe impl<T> PipelineBuffer<T> for Glow
 where
     T: Copy,
 {
@@ -174,7 +174,7 @@ where
     }
 }
 
-unsafe impl<D, P> PipelineTexture<D, P> for GlowBackend
+unsafe impl<D, P> PipelineTexture<D, P> for Glow
 where
     D: Dimensionable,
     P: Pixel,
@@ -214,7 +214,7 @@ where
     }
 }
 
-unsafe impl<V, I, W> TessGate<V, I, W, Interleaved> for GlowBackend
+unsafe impl<V, I, W> TessGate<V, I, W, Interleaved> for Glow
 where
     V: TessVertexData<Interleaved, Data = Vec<V>>,
     I: TessIndex,
@@ -231,7 +231,7 @@ where
     }
 }
 
-unsafe impl<V, I, W> TessGate<V, I, W, Deinterleaved> for GlowBackend
+unsafe impl<V, I, W> TessGate<V, I, W, Deinterleaved> for Glow
 where
     V: TessVertexData<Deinterleaved, Data = Vec<DeinterleavedData>>,
     I: TessIndex,
@@ -248,7 +248,7 @@ where
     }
 }
 
-unsafe impl RenderGate for GlowBackend {
+unsafe impl RenderGate for Glow {
     unsafe fn enter_render_state(&mut self, rdr_st: &RenderState) {
         let mut state = self.state.borrow_mut();
 
@@ -309,7 +309,7 @@ unsafe impl RenderGate for GlowBackend {
     }
 }
 
-unsafe impl ShadingGate for GlowBackend {
+unsafe impl ShadingGate for Glow {
     unsafe fn apply_shader_program(&mut self, shader_program: &Self::ProgramRepr) {
         self.state
             .borrow_mut()

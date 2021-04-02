@@ -1,4 +1,4 @@
-//! WebGL2 buffer implementation.
+//! Glow buffer implementation.
 
 use std::cell::RefCell;
 use std::cmp::Ordering;
@@ -9,7 +9,7 @@ use std::rc::Rc;
 use std::slice;
 
 use crate::state::{Bind, GlowState};
-use crate::GlowBackend;
+use crate::Glow;
 use glow::HasContext;
 use luminance::backend::buffer::{Buffer as BufferBackend, BufferSlice as BufferSliceBackend};
 use luminance::buffer::BufferError;
@@ -48,12 +48,7 @@ impl<T> Buffer<T> {
     /// The `target` parameter allows to create the buffer with
     /// [`glow::ARRAY_BUFFER`] or [`glow::ELEMENT_ARRAY_BUFFER`]
     /// directly, as WebGL2 doesn’t support changing the target type after the buffer is created.
-    fn new(
-        ctx: &mut GlowBackend,
-        len: usize,
-        clear_value: T,
-        target: u32,
-    ) -> Result<Self, BufferError>
+    fn new(ctx: &mut Glow, len: usize, clear_value: T, target: u32) -> Result<Self, BufferError>
     where
         T: Copy,
     {
@@ -85,11 +80,7 @@ impl<T> Buffer<T> {
         }
     }
 
-    pub(crate) fn from_vec(
-        ctx: &mut GlowBackend,
-        vec: Vec<T>,
-        target: u32,
-    ) -> Result<Self, BufferError> {
+    pub(crate) fn from_vec(ctx: &mut Glow, vec: Vec<T>, target: u32) -> Result<Self, BufferError> {
         unsafe {
             let mut state = ctx.state.borrow_mut();
             let len = vec.len();
@@ -137,7 +128,7 @@ impl<T> Buffer<T> {
     }
 }
 
-unsafe impl<T> BufferBackend<T> for GlowBackend
+unsafe impl<T> BufferBackend<T> for Glow
 where
     T: Copy,
 {
@@ -338,7 +329,7 @@ impl<T> DerefMut for BufferSliceMut<T> {
     }
 }
 
-unsafe impl<T> BufferSliceBackend<T> for GlowBackend
+unsafe impl<T> BufferSliceBackend<T> for Glow
 where
     T: Copy,
 {
