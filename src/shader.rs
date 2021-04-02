@@ -13,8 +13,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::glow_backend::state::GlowState;
-use crate::glow_backend::GlowBackend;
+use crate::state::GlowState;
+use crate::GlowBackend;
 use glow::HasContext;
 
 #[derive(Debug)]
@@ -37,7 +37,7 @@ impl Stage {
         unsafe {
             let state = glow_backend.state.borrow();
 
-            let shader_ty = webgl_shader_type(ty).ok_or_else(|| {
+            let shader_ty = glow_shader_type(ty).ok_or_else(|| {
                 StageError::CompilationFailed(ty, "unsupported shader type".to_owned())
             })?;
 
@@ -94,14 +94,14 @@ impl Drop for Program {
 
 impl Program {
     fn new(
-        webgl2: &mut GlowBackend,
+        glow2: &mut GlowBackend,
         vertex: &Stage,
         tess: Option<TessellationStages<Stage>>,
         geometry: Option<&Stage>,
         fragment: &Stage,
     ) -> Result<Self, ProgramError> {
         unsafe {
-            let state = webgl2.state.borrow();
+            let state = glow2.state.borrow();
 
             let handle = state.ctx.create_program().map_err(|e| {
                 ProgramError::CreationFailed(format!(
@@ -128,7 +128,7 @@ impl Program {
             state.ctx.attach_shader(handle, *fragment.handle());
 
             let location_map = Rc::new(RefCell::new(HashMap::new()));
-            let state = webgl2.state.clone();
+            let state = glow2.state.clone();
             let program = Program {
                 handle,
                 location_map,
@@ -296,7 +296,7 @@ unsafe impl Shader for GlowBackend {
     }
 }
 
-fn webgl_shader_type(ty: StageType) -> Option<u32> {
+fn glow_shader_type(ty: StageType) -> Option<u32> {
     match ty {
         StageType::VertexShader => Some(glow::VERTEX_SHADER),
         StageType::FragmentShader => Some(glow::FRAGMENT_SHADER),
@@ -315,95 +315,95 @@ fn patch_shader_src(src: &str) -> String {
 }
 
 fn uniform_type_match(
-    state: &GlowState,
-    program: &glow::Program,
-    name: &str,
-    ty: UniformType,
+    _state: &GlowState,
+    _program: &glow::Program,
+    _name: &str,
+    _ty: UniformType,
 ) -> Result<(), UniformWarning> {
-    unsafe {
-        // // get the index of the uniform; it’s represented as an array of a single element, since our
-        // // input has only one element
-        // let index = state
-        //     .ctx
-        //     .get_uniform_location(*program, name)
-        //     .ok_or_else(|| {
-        //         UniformWarning::TypeMismatch("cannot retrieve uniform index".to_owned(), ty)
-        //     })?;
+    // unsafe {
+    // // get the index of the uniform; it’s represented as an array of a single element, since our
+    // // input has only one element
+    // let index = state
+    //     .ctx
+    //     .get_uniform_location(*program, name)
+    //     .ok_or_else(|| {
+    //         UniformWarning::TypeMismatch("cannot retrieve uniform index".to_owned(), ty)
+    //     })?;
 
-        // // get its size and type
-        // let info = state
-        //     .ctx
-        //     .get_active_uniform(*program, index)
-        //     .ok_or_else(|| {
-        //         UniformWarning::TypeMismatch("cannot retrieve active uniform".to_owned(), ty)
-        //     })?;
+    // // get its size and type
+    // let info = state
+    //     .ctx
+    //     .get_active_uniform(*program, index)
+    //     .ok_or_else(|| {
+    //         UniformWarning::TypeMismatch("cannot retrieve active uniform".to_owned(), ty)
+    //     })?;
 
-        // check_types_match(name, ty, info.utype)
-        // FIXME: I don't know if we can actually get the uniform info from the name
-        Ok(())
-    }
+    // check_types_match(name, ty, info.utype)
+    // FIXME: I don't know how we can actually get the uniform info from the name yet
+    Ok(())
+    // }
 }
 
-#[allow(clippy::cognitive_complexity)]
-fn check_types_match(name: &str, ty: UniformType, glty: u32) -> Result<(), UniformWarning> {
-    // helper macro to check type mismatch for each variant
-    macro_rules! milkcheck {
-    ($ty:expr, $( ( $v:tt, $t:tt ) ),*) => {
-      match $ty {
-        $(
-          UniformType::$v => {
-            if glty == glow::$t {
-              Ok(())
-            } else {
-              Err(UniformWarning::type_mismatch(name, ty))
-            }
-          }
-        )*
+// #[allow(clippy::cognitive_complexity)]
+// fn check_types_match(name: &str, ty: UniformType, glty: u32) -> Result<(), UniformWarning> {
+//     // helper macro to check type mismatch for each variant
+//     macro_rules! milkcheck {
+//     ($ty:expr, $( ( $v:tt, $t:tt ) ),*) => {
+//       match $ty {
+//         $(
+//           UniformType::$v => {
+//             if glty == glow::$t {
+//               Ok(())
+//             } else {
+//               Err(UniformWarning::type_mismatch(name, ty))
+//             }
+//           }
+//         )*
 
-        _ => Err(UniformWarning::unsupported_type(name, ty))
-      }
-    }
-  }
+//         _ => Err(UniformWarning::unsupported_type(name, ty))
+//       }
+//     }
+//   }
 
-    milkcheck!(
-        ty,
-        // scalars
-        (Int, INT),
-        (UInt, UNSIGNED_INT),
-        (Float, FLOAT),
-        (Bool, BOOL),
-        // vectors
-        (IVec2, INT_VEC2),
-        (IVec3, INT_VEC3),
-        (IVec4, INT_VEC4),
-        (UIVec2, UNSIGNED_INT_VEC2),
-        (UIVec3, UNSIGNED_INT_VEC3),
-        (UIVec4, UNSIGNED_INT_VEC4),
-        (Vec2, FLOAT_VEC2),
-        (Vec3, FLOAT_VEC3),
-        (Vec4, FLOAT_VEC4),
-        (BVec2, BOOL_VEC2),
-        (BVec3, BOOL_VEC3),
-        (BVec4, BOOL_VEC4),
-        // matrices
-        (M22, FLOAT_MAT2),
-        (M33, FLOAT_MAT3),
-        (M44, FLOAT_MAT4),
-        // textures
-        (ISampler2D, INT_SAMPLER_2D),
-        (ISampler3D, INT_SAMPLER_3D),
-        (ISampler2DArray, INT_SAMPLER_2D_ARRAY),
-        (UISampler2D, UNSIGNED_INT_SAMPLER_2D),
-        (UISampler3D, UNSIGNED_INT_SAMPLER_3D),
-        (UISampler2DArray, UNSIGNED_INT_SAMPLER_2D_ARRAY),
-        (Sampler2D, SAMPLER_2D),
-        (Sampler3D, SAMPLER_3D),
-        (Sampler2DArray, SAMPLER_2D_ARRAY),
-        (ICubemap, INT_SAMPLER_CUBE),
-        (UICubemap, UNSIGNED_INT_SAMPLER_CUBE),
-        (Cubemap, SAMPLER_CUBE)
-    )
-}
+//     milkcheck!(
+//         ty,
+//         // scalars
+//         (Int, INT),
+//         (UInt, UNSIGNED_INT),
+//         (Float, FLOAT),
+//         (Bool, BOOL),
+//         // vectors
+//         (IVec2, INT_VEC2),
+//         (IVec3, INT_VEC3),
+//         (IVec4, INT_VEC4),
+//         (UIVec2, UNSIGNED_INT_VEC2),
+//         (UIVec3, UNSIGNED_INT_VEC3),
+//         (UIVec4, UNSIGNED_INT_VEC4),
+//         (Vec2, FLOAT_VEC2),
+//         (Vec3, FLOAT_VEC3),
+//         (Vec4, FLOAT_VEC4),
+//         (BVec2, BOOL_VEC2),
+//         (BVec3, BOOL_VEC3),
+//         (BVec4, BOOL_VEC4),
+//         // matrices
+//         (M22, FLOAT_MAT2),
+//         (M33, FLOAT_MAT3),
+//         (M44, FLOAT_MAT4),
+//         // textures
+//         (ISampler2D, INT_SAMPLER_2D),
+//         (ISampler3D, INT_SAMPLER_3D),
+//         (ISampler2DArray, INT_SAMPLER_2D_ARRAY),
+//         (UISampler2D, UNSIGNED_INT_SAMPLER_2D),
+//         (UISampler3D, UNSIGNED_INT_SAMPLER_3D),
+//         (UISampler2DArray, UNSIGNED_INT_SAMPLER_2D_ARRAY),
+//         (Sampler2D, SAMPLER_2D),
+//         (Sampler3D, SAMPLER_3D),
+//         (Sampler2DArray, SAMPLER_2D_ARRAY),
+//         (ICubemap, INT_SAMPLER_CUBE),
+//         (UICubemap, UNSIGNED_INT_SAMPLER_CUBE),
+//         (Cubemap, SAMPLER_CUBE)
+//     )
+// }
 
 fn bind_vertex_attribs_locations<Sem>(
     state: &GlowState,

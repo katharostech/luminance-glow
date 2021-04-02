@@ -8,8 +8,8 @@ use luminance::texture::{Dim2, Dimensionable, Sampler};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::glow_backend::state::GlowState;
-use crate::glow_backend::GlowBackend;
+use crate::state::GlowState;
+use crate::GlowBackend;
 use glow::HasContext;
 
 pub struct Framebuffer<D>

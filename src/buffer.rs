@@ -8,8 +8,8 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::slice;
 
-use crate::glow_backend::state::{Bind, GlowState};
-use crate::glow_backend::GlowBackend;
+use crate::state::{Bind, GlowState};
+use crate::GlowBackend;
 use glow::HasContext;
 use luminance::backend::buffer::{Buffer as BufferBackend, BufferSlice as BufferSliceBackend};
 use luminance::buffer::BufferError;
@@ -182,7 +182,7 @@ where
             // then update the WebGL buffer
             let mut state = buffer.gl_buf.state.borrow_mut();
             let bytes = mem::size_of::<T>() * buffer_len;
-            update_webgl_buffer(
+            update_glow_buffer(
                 &mut state,
                 buffer.gl_buf.handle,
                 buffer.buf.as_ptr() as *const u8,
@@ -215,7 +215,7 @@ where
         // update the data on GPU
         let mut state = buffer.gl_buf.state.borrow_mut();
         let bytes = mem::size_of::<T>() * buffer_len;
-        update_webgl_buffer(
+        update_glow_buffer(
             &mut state,
             buffer.gl_buf.handle,
             buffer.buf.as_ptr() as *const u8,
@@ -234,7 +234,7 @@ where
 
         let mut state = buffer.gl_buf.state.borrow_mut();
         let bytes = buffer.buf.len() * mem::size_of::<T>();
-        update_webgl_buffer(
+        update_glow_buffer(
             &mut state,
             buffer.gl_buf.handle,
             buffer.buf.as_ptr() as *const u8,
@@ -295,7 +295,7 @@ pub struct BufferSliceMutWrapper {
 impl Drop for BufferSliceMutWrapper {
     fn drop(&mut self) {
         let mut state = self.state.borrow_mut();
-        update_webgl_buffer(&mut state, self.handle, self.ptr, self.bytes, 0);
+        update_glow_buffer(&mut state, self.handle, self.ptr, self.bytes, 0);
     }
 }
 
@@ -376,7 +376,7 @@ where
 }
 
 /// Update a WebGL buffer by copying an input slice.
-fn update_webgl_buffer(
+fn update_glow_buffer(
     state: &mut GlowState,
     gl_buf: glow::Buffer,
     data: *const u8,

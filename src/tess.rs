@@ -17,9 +17,9 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-use crate::glow_backend::buffer::{Buffer, BufferSlice, BufferSliceMut};
-use crate::glow_backend::state::{Bind, GlowState};
-use crate::glow_backend::GlowBackend;
+use crate::buffer::{Buffer, BufferSlice, BufferSliceMut};
+use crate::state::{Bind, GlowState};
+use crate::GlowBackend;
 use glow::HasContext;
 
 #[derive(Debug)]

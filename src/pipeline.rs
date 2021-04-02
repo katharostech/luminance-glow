@@ -17,7 +17,7 @@ use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-use crate::glow_backend::{
+use crate::{
     state::{BlendingState, DepthTest, FaceCullingState, GlowState, ScissorState},
     GlowBackend,
 };

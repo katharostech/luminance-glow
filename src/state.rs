@@ -402,8 +402,7 @@ impl GlowState {
             };
 
             if self.blending_equations != equations {
-                self.ctx
-                    .blend_equation(blending_equation_to_webgl(equation));
+                self.ctx.blend_equation(blending_equation_to_glow(equation));
                 self.blending_equations = equations;
             }
         }
@@ -422,8 +421,8 @@ impl GlowState {
 
             if self.blending_equations != equations {
                 self.ctx.blend_equation_separate(
-                    blending_equation_to_webgl(equation_rgb),
-                    blending_equation_to_webgl(equation_alpha),
+                    blending_equation_to_glow(equation_rgb),
+                    blending_equation_to_glow(equation_alpha),
                 );
 
                 self.blending_equations = equations;
@@ -442,7 +441,7 @@ impl GlowState {
 
             if self.blending_funcs != funcs {
                 self.ctx
-                    .blend_func(blending_factor_to_webgl(src), blending_factor_to_webgl(dst));
+                    .blend_func(blending_factor_to_glow(src), blending_factor_to_glow(dst));
 
                 self.blending_funcs = funcs;
             }
@@ -465,10 +464,10 @@ impl GlowState {
             };
             if self.blending_funcs != funcs {
                 self.ctx.blend_func_separate(
-                    blending_factor_to_webgl(src_rgb),
-                    blending_factor_to_webgl(dst_rgb),
-                    blending_factor_to_webgl(src_alpha),
-                    blending_factor_to_webgl(dst_alpha),
+                    blending_factor_to_glow(src_rgb),
+                    blending_factor_to_glow(dst_rgb),
+                    blending_factor_to_glow(src_alpha),
+                    blending_factor_to_glow(dst_alpha),
                 );
 
                 self.blending_funcs = funcs;
@@ -493,7 +492,7 @@ impl GlowState {
         unsafe {
             if self.depth_test_comparison != depth_test_comparison {
                 self.ctx
-                    .depth_func(depth_comparison_to_webgl(depth_test_comparison));
+                    .depth_func(depth_comparison_to_glow(depth_test_comparison));
 
                 self.depth_test_comparison = depth_test_comparison;
             }
@@ -605,7 +604,7 @@ pub enum StateQueryError {
     /// That might occur if the current thread doesn’t support allocating a new graphics state. It
     /// might happen if you try to have more than one state on the same thread, for instance.
     ///
-    /// [`WebGL2State`]: crate::webgl2::state::WebGL2State
+    /// [`WebGL2State`]: crate::glow2::state::WebGL2State
     UnavailableWebGL2State,
     /// Unknown array buffer initial state.
     UnknownArrayBufferInitialState,
@@ -921,7 +920,7 @@ fn get_ctx_scissor_region(ctx: &mut glow::Context) -> Result<ScissorRegion, Stat
 // I think that Glow handles this for us, though I don't know exactly what will happen if we don't
 // have the exensions that we need.
 //
-// fn load_webgl2_extensions(ctx: &mut glow::Context) -> Result<(), StateQueryError> {
+// fn load_glow2_extensions(ctx: &mut glow::Context) -> Result<(), StateQueryError> {
 //     let required_extensions = [
 //         "OES_texture_float_linear",
 //         "EXT_color_buffer_float",
@@ -998,7 +997,7 @@ pub(crate) enum FaceCullingState {
 }
 
 #[inline]
-fn depth_comparison_to_webgl(dc: DepthComparison) -> u32 {
+fn depth_comparison_to_glow(dc: DepthComparison) -> u32 {
     match dc {
         DepthComparison::Never => glow::NEVER,
         DepthComparison::Always => glow::ALWAYS,
@@ -1012,7 +1011,7 @@ fn depth_comparison_to_webgl(dc: DepthComparison) -> u32 {
 }
 
 #[inline]
-fn blending_equation_to_webgl(equation: Equation) -> u32 {
+fn blending_equation_to_glow(equation: Equation) -> u32 {
     match equation {
         Equation::Additive => glow::FUNC_ADD,
         Equation::Subtract => glow::FUNC_SUBTRACT,
@@ -1023,7 +1022,7 @@ fn blending_equation_to_webgl(equation: Equation) -> u32 {
 }
 
 #[inline]
-fn blending_factor_to_webgl(factor: Factor) -> u32 {
+fn blending_factor_to_glow(factor: Factor) -> u32 {
     match factor {
         Factor::One => glow::ONE,
         Factor::Zero => glow::ZERO,

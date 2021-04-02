@@ -10,9 +10,9 @@ use std::mem;
 use std::rc::Rc;
 use std::slice;
 
-use crate::glow_backend::pixel::glow_pixel_format;
-use crate::glow_backend::state::GlowState;
-use crate::glow_backend::GlowBackend;
+use crate::pixel::glow_pixel_format;
+use crate::state::GlowState;
+use crate::GlowBackend;
 
 pub struct Texture {
     pub(crate) handle: glow::Texture,
@@ -314,27 +314,27 @@ fn apply_sampler_to_texture(state: &mut GlowState, target: u32, sampler: Sampler
         state.ctx.tex_parameter_i32(
             target,
             glow::TEXTURE_WRAP_R,
-            webgl_wrap(sampler.wrap_r) as i32,
+            glow_wrap(sampler.wrap_r) as i32,
         );
         state.ctx.tex_parameter_i32(
             target,
             glow::TEXTURE_WRAP_S,
-            webgl_wrap(sampler.wrap_s) as i32,
+            glow_wrap(sampler.wrap_s) as i32,
         );
         state.ctx.tex_parameter_i32(
             target,
             glow::TEXTURE_WRAP_T,
-            webgl_wrap(sampler.wrap_t) as i32,
+            glow_wrap(sampler.wrap_t) as i32,
         );
         state.ctx.tex_parameter_i32(
             target,
             glow::TEXTURE_MIN_FILTER,
-            webgl_min_filter(sampler.min_filter) as i32,
+            glow_min_filter(sampler.min_filter) as i32,
         );
         state.ctx.tex_parameter_i32(
             target,
             glow::TEXTURE_MAG_FILTER,
-            webgl_mag_filter(sampler.mag_filter) as i32,
+            glow_mag_filter(sampler.mag_filter) as i32,
         );
 
         match sampler.depth_comparison {
@@ -342,7 +342,7 @@ fn apply_sampler_to_texture(state: &mut GlowState, target: u32, sampler: Sampler
                 state.ctx.tex_parameter_i32(
                     target,
                     glow::TEXTURE_COMPARE_FUNC,
-                    webgl_depth_comparison(fun) as i32,
+                    glow_depth_comparison(fun) as i32,
                 );
                 state.ctx.tex_parameter_i32(
                     target,
@@ -360,7 +360,7 @@ fn apply_sampler_to_texture(state: &mut GlowState, target: u32, sampler: Sampler
     }
 }
 
-fn webgl_wrap(wrap: Wrap) -> u32 {
+fn glow_wrap(wrap: Wrap) -> u32 {
     match wrap {
         Wrap::ClampToEdge => glow::CLAMP_TO_EDGE,
         Wrap::Repeat => glow::REPEAT,
@@ -368,7 +368,7 @@ fn webgl_wrap(wrap: Wrap) -> u32 {
     }
 }
 
-fn webgl_min_filter(filter: MinFilter) -> u32 {
+fn glow_min_filter(filter: MinFilter) -> u32 {
     match filter {
         MinFilter::Nearest => glow::NEAREST,
         MinFilter::Linear => glow::LINEAR,
@@ -379,7 +379,7 @@ fn webgl_min_filter(filter: MinFilter) -> u32 {
     }
 }
 
-fn webgl_mag_filter(filter: MagFilter) -> u32 {
+fn glow_mag_filter(filter: MagFilter) -> u32 {
     match filter {
         MagFilter::Nearest => glow::NEAREST,
         MagFilter::Linear => glow::LINEAR,
@@ -688,7 +688,7 @@ where
     D::width(size) * D::height(size) * D::depth(size)
 }
 
-pub(crate) fn webgl_depth_comparison(dc: DepthComparison) -> u32 {
+pub(crate) fn glow_depth_comparison(dc: DepthComparison) -> u32 {
     match dc {
         DepthComparison::Never => glow::NEVER,
         DepthComparison::Always => glow::ALWAYS,
