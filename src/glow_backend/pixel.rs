@@ -1,7 +1,7 @@
 use luminance::pixel::{Format, PixelFormat, Size, Type};
 
-// WebGL format, internal sized-format and type.
-pub(crate) fn webgl_pixel_format(pf: PixelFormat) -> Option<(u32, u32, u32)> {
+// Glow format, internal sized-format and type.
+pub(crate) fn glow_pixel_format(pf: PixelFormat) -> Option<(u32, u32, u32)> {
     match (pf.format, pf.encoding) {
         // red channel
         (Format::R(Size::Eight), Type::NormUnsigned) => {

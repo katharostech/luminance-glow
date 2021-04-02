@@ -7,6 +7,8 @@
 
 extern crate serde_derive;
 
+pub use glow;
+
 #[macro_use]
 mod slice;
 

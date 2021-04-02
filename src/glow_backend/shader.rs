@@ -321,24 +321,26 @@ fn uniform_type_match(
     ty: UniformType,
 ) -> Result<(), UniformWarning> {
     unsafe {
-        // get the index of the uniform; it’s represented as an array of a single element, since our
-        // input has only one element
-        let index = state
-            .ctx
-            .get_uniform_location(*program, name)
-            .ok_or_else(|| {
-                UniformWarning::TypeMismatch("cannot retrieve uniform index".to_owned(), ty)
-            })?;
+        // // get the index of the uniform; it’s represented as an array of a single element, since our
+        // // input has only one element
+        // let index = state
+        //     .ctx
+        //     .get_uniform_location(*program, name)
+        //     .ok_or_else(|| {
+        //         UniformWarning::TypeMismatch("cannot retrieve uniform index".to_owned(), ty)
+        //     })?;
 
-        // get its size and type
-        let info = state
-            .ctx
-            .get_active_uniform(*program, index)
-            .ok_or_else(|| {
-                UniformWarning::TypeMismatch("cannot retrieve active uniform".to_owned(), ty)
-            })?;
+        // // get its size and type
+        // let info = state
+        //     .ctx
+        //     .get_active_uniform(*program, index)
+        //     .ok_or_else(|| {
+        //         UniformWarning::TypeMismatch("cannot retrieve active uniform".to_owned(), ty)
+        //     })?;
 
-        check_types_match(name, ty, info.utype)
+        // check_types_match(name, ty, info.utype)
+        // FIXME: I don't know if we can actually get the uniform info from the name
+        Ok(())
     }
 }
 

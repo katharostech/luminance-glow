@@ -10,7 +10,7 @@ use std::mem;
 use std::rc::Rc;
 use std::slice;
 
-use crate::glow_backend::pixel::webgl_pixel_format;
+use crate::glow_backend::pixel::glow_pixel_format;
 use crate::glow_backend::state::GlowState;
 use crate::glow_backend::GlowBackend;
 
@@ -202,7 +202,7 @@ where
     {
         let pf = P::pixel_format();
         let (format, _, ty) =
-            webgl_pixel_format(pf).ok_or(TextureError::UnsupportedPixelFormat(pf))?;
+            glow_pixel_format(pf).ok_or(TextureError::UnsupportedPixelFormat(pf))?;
 
         let mut gfx_state = texture.state.borrow_mut();
         gfx_state.bind_texture(texture.target, Some(texture.handle));
@@ -395,7 +395,7 @@ fn create_texture_storage<D>(
 where
     D: Dimensionable,
 {
-    match webgl_pixel_format(pf) {
+    match glow_pixel_format(pf) {
         Some(glf) => {
             let (format, iformat, encoding) = glf;
 
@@ -610,7 +610,7 @@ where
     set_unpack_alignment(state, skip_bytes);
 
     unsafe {
-        match webgl_pixel_format(pf) {
+        match glow_pixel_format(pf) {
             Some((format, _, encoding)) => match D::dim() {
                 Dim::Dim2 => {
                     state.ctx.tex_sub_image_2d(
