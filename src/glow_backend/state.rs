@@ -119,8 +119,6 @@ impl GlowState {
 
     /// Get a `GraphicsContext` from the current OpenGL context.
     fn get_from_context(mut ctx: glow::Context) -> Result<Self, StateQueryError> {
-        load_webgl2_extensions(&mut ctx)?;
-
         let binding_stack = BindingStack::new();
         let viewport = get_ctx_viewport(&mut ctx)?;
         let clear_color = get_ctx_clear_color(&mut ctx)?;
@@ -137,7 +135,7 @@ impl GlowState {
         let scissor_region = get_ctx_scissor_region(&mut ctx)?;
 
         let current_texture_unit = 0;
-        let bound_textures = vec![(glow::Context::TEXTURE0, None); 48]; // 48 is the platform minimal requirement
+        let bound_textures = vec![(glow::TEXTURE0, None); 48]; // 48 is the platform minimal requirement
         let texture_swimming_pool = Vec::new();
         let bound_uniform_buffers = vec![None; 36]; // 36 is the platform minimal requirement
         let bound_array_buffer = None;
@@ -183,44 +181,49 @@ impl GlowState {
         &mut self.binding_stack
     }
 
-    pub(crate) fn create_buffer(&mut self) -> Option<glow::Buffer> {
-        self.ctx.create_buffer()
+    pub(crate) fn create_buffer(&mut self) -> Result<glow::Buffer, String> {
+        unsafe { self.ctx.create_buffer() }
     }
 
-    pub(crate) fn bind_buffer_base(&mut self, handle: &glow::Buffer, binding: u32) {
-        match self.bound_uniform_buffers.get(binding as usize) {
-            Some(ref handle_) if Some(handle) != handle_.as_ref() => {
-                self.ctx
-                    .bind_buffer_base(glow::Context::UNIFORM_BUFFER, binding, Some(handle));
-                self.bound_uniform_buffers[binding as usize] = Some(handle.clone());
+    pub(crate) fn bind_buffer_base(&mut self, handle: glow::Buffer, binding: u32) {
+        unsafe {
+            match self.bound_uniform_buffers.get(binding as usize) {
+                Some(&handle_) if Some(handle) != handle_ => {
+                    self.ctx
+                        .bind_buffer_base(glow::UNIFORM_BUFFER, binding, Some(handle));
+                    self.bound_uniform_buffers[binding as usize] = Some(handle.clone());
+                }
+
+                None => {
+                    self.ctx
+                        .bind_buffer_base(glow::UNIFORM_BUFFER, binding, Some(handle));
+
+                    // not enough registered buffer bindings; let’s grow a bit more
+                    self.bound_uniform_buffers
+                        .resize(binding as usize + 1, None);
+                    self.bound_uniform_buffers[binding as usize] = Some(handle.clone());
+                }
+
+                _ => (), // cached
             }
-
-            None => {
-                self.ctx
-                    .bind_buffer_base(glow::Context::UNIFORM_BUFFER, binding, Some(handle));
-
-                // not enough registered buffer bindings; let’s grow a bit more
-                self.bound_uniform_buffers
-                    .resize(binding as usize + 1, None);
-                self.bound_uniform_buffers[binding as usize] = Some(handle.clone());
-            }
-
-            _ => (), // cached
         }
     }
 
-    pub(crate) fn bind_array_buffer(&mut self, buffer: Option<&glow::Buffer>, bind: Bind) {
-        if bind == Bind::Forced || self.bound_array_buffer.as_ref() != buffer {
-            self.ctx.bind_buffer(glow::Context::ARRAY_BUFFER, buffer);
-            self.bound_array_buffer = buffer.cloned();
+    pub(crate) fn bind_array_buffer(&mut self, buffer: Option<glow::Buffer>, bind: Bind) {
+        unsafe {
+            if bind == Bind::Forced || self.bound_array_buffer != buffer {
+                self.ctx.bind_buffer(glow::ARRAY_BUFFER, buffer);
+                self.bound_array_buffer = buffer;
+            }
         }
     }
 
-    pub(crate) fn bind_element_array_buffer(&mut self, buffer: Option<&glow::Buffer>, bind: Bind) {
-        if bind == Bind::Forced || self.bound_element_array_buffer.as_ref() != buffer {
-            self.ctx
-                .bind_buffer(glow::Context::ELEMENT_ARRAY_BUFFER, buffer);
-            self.bound_element_array_buffer = buffer.cloned();
+    pub(crate) fn bind_element_array_buffer(&mut self, buffer: Option<glow::Buffer>, bind: Bind) {
+        unsafe {
+            if bind == Bind::Forced || self.bound_element_array_buffer != buffer {
+                self.ctx.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, buffer);
+                self.bound_element_array_buffer = buffer;
+            }
         }
     }
 
@@ -238,148 +241,171 @@ impl GlowState {
         }
     }
 
-    pub(crate) fn create_vertex_array(&mut self) -> Option<glow::VertexArray> {
-        self.ctx.create_vertex_array()
+    pub(crate) fn create_vertex_array(&mut self) -> Result<glow::VertexArray, String> {
+        unsafe { self.ctx.create_vertex_array() }
     }
 
     pub(crate) fn bind_vertex_array(&mut self, vao: Option<&glow::VertexArray>, bind: Bind) {
-        if bind == Bind::Forced || self.bound_vertex_array.as_ref() != vao {
-            self.ctx.bind_vertex_array(vao);
-            self.bound_vertex_array = vao.cloned();
+        unsafe {
+            if bind == Bind::Forced || self.bound_vertex_array.as_ref() != vao {
+                self.ctx.bind_vertex_array(vao.cloned());
+                self.bound_vertex_array = vao.cloned();
+            }
         }
     }
 
-    pub(crate) fn create_texture(&mut self) -> Option<glow::Texture> {
-        self.texture_swimming_pool
-            .pop()
-            .flatten()
-            .or_else(|| self.ctx.create_texture())
+    pub(crate) fn create_texture(&mut self) -> Result<glow::Texture, String> {
+        unsafe {
+            if let Some(tex) = self.texture_swimming_pool.pop().flatten() {
+                Ok(tex)
+            } else {
+                self.ctx.create_texture()
+            }
+        }
     }
 
     /// Reserve at least a given number of textures.
     pub(crate) fn reserve_textures(&mut self, nb: usize) {
-        let available = self.texture_swimming_pool.len();
-        let needed = nb.max(available) - available;
+        unsafe {
+            let available = self.texture_swimming_pool.len();
+            let needed = nb.max(available) - available;
 
-        if needed > 0 {
-            // resize the internal buffer to hold all the new textures and create a slice starting from
-            // the previous end to the new end
-            self.texture_swimming_pool.resize(available + needed, None);
+            if needed > 0 {
+                // resize the internal buffer to hold all the new textures and create a slice starting from
+                // the previous end to the new end
+                self.texture_swimming_pool.resize(available + needed, None);
 
-            for _ in 0..needed {
-                match self.ctx.create_texture() {
-                    Some(texture) => self.texture_swimming_pool.push(Some(texture)),
-                    None => break,
+                for _ in 0..needed {
+                    match self.ctx.create_texture() {
+                        Ok(texture) => self.texture_swimming_pool.push(Some(texture)),
+                        Err(_) => break,
+                    }
                 }
             }
         }
     }
 
     pub(crate) fn set_texture_unit(&mut self, unit: u32) {
-        if self.current_texture_unit != unit {
-            self.ctx.active_texture(glow::Context::TEXTURE0 + unit);
-            self.current_texture_unit = unit;
+        unsafe {
+            if self.current_texture_unit != unit {
+                self.ctx.active_texture(glow::TEXTURE0 + unit);
+                self.current_texture_unit = unit;
+            }
         }
     }
 
-    pub(crate) fn bind_texture(&mut self, target: u32, handle: Option<&glow::Texture>) {
-        let unit = self.current_texture_unit as usize;
+    pub(crate) fn bind_texture(&mut self, target: u32, handle: Option<glow::Texture>) {
+        unsafe {
+            let unit = self.current_texture_unit as usize;
 
-        match self.bound_textures.get(unit) {
-            Some((t, ref h)) if target != *t || handle != h.as_ref() => {
-                self.ctx.bind_texture(target, handle);
-                self.bound_textures[unit] = (target, handle.cloned());
+            match self.bound_textures.get(unit) {
+                Some((t, ref h)) if target != *t || handle != *h => {
+                    self.ctx.bind_texture(target, handle);
+                    self.bound_textures[unit] = (target, handle);
+                }
+
+                None => {
+                    self.ctx.bind_texture(target, handle);
+
+                    // not enough available texture units; let’s grow a bit more
+                    self.bound_textures
+                        .resize(unit + 1, (glow::TEXTURE_2D, None));
+                    self.bound_textures[unit] = (target, handle);
+                }
+
+                _ => (), // cached
             }
-
-            None => {
-                self.ctx.bind_texture(target, handle);
-
-                // not enough available texture units; let’s grow a bit more
-                self.bound_textures
-                    .resize(unit + 1, (glow::Context::TEXTURE_2D, None));
-                self.bound_textures[unit] = (target, handle.cloned());
-            }
-
-            _ => (), // cached
         }
     }
 
-    pub(crate) fn create_framebuffer(&mut self) -> Option<glow::Framebuffer> {
-        self.ctx.create_framebuffer()
+    pub(crate) fn create_framebuffer(&mut self) -> Result<glow::Framebuffer, String> {
+        unsafe { self.ctx.create_framebuffer() }
     }
 
     pub(crate) fn create_or_get_readback_framebuffer(&mut self) -> Option<glow::Framebuffer> {
         self.readback_framebuffer.clone().or_else(|| {
             // create the readback framebuffer if not already created
-            self.readback_framebuffer = self.create_framebuffer();
+            self.readback_framebuffer = self.create_framebuffer().ok();
             self.readback_framebuffer.clone()
         })
     }
 
-    pub(crate) fn bind_draw_framebuffer(&mut self, handle: Option<&glow::Framebuffer>) {
-        if self.bound_draw_framebuffer.as_ref() != handle {
-            self.ctx
-                .bind_framebuffer(glow::Context::FRAMEBUFFER, handle);
-            self.bound_draw_framebuffer = handle.cloned();
+    pub(crate) fn bind_draw_framebuffer(&mut self, handle: Option<glow::Framebuffer>) {
+        unsafe {
+            if self.bound_draw_framebuffer != handle {
+                self.ctx.bind_framebuffer(glow::FRAMEBUFFER, handle);
+                self.bound_draw_framebuffer = handle;
+            }
         }
     }
 
-    pub(crate) fn bind_read_framebuffer(&mut self, handle: Option<&glow::Framebuffer>) {
-        if self.bound_read_framebuffer.as_ref() != handle {
-            self.ctx
-                .bind_framebuffer(glow::Context::READ_FRAMEBUFFER, handle);
-            self.bound_read_framebuffer = handle.cloned();
+    pub(crate) fn bind_read_framebuffer(&mut self, handle: Option<glow::Framebuffer>) {
+        unsafe {
+            if self.bound_read_framebuffer != handle {
+                self.ctx.bind_framebuffer(glow::READ_FRAMEBUFFER, handle);
+                self.bound_read_framebuffer = handle;
+            }
         }
     }
 
-    pub(crate) fn use_program(&mut self, handle: Option<&glow::Program>) {
-        if self.current_program.as_ref() != handle {
-            self.ctx.use_program(handle);
-            self.current_program = handle.cloned();
+    pub(crate) fn use_program(&mut self, handle: Option<glow::Program>) {
+        unsafe {
+            if self.current_program != handle {
+                self.ctx.use_program(handle);
+                self.current_program = handle;
+            }
         }
     }
 
     pub(crate) fn set_viewport(&mut self, viewport: [i32; 4]) {
-        if self.viewport != viewport {
-            self.ctx
-                .viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-            self.viewport = viewport;
+        unsafe {
+            if self.viewport != viewport {
+                self.ctx
+                    .viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+                self.viewport = viewport;
+            }
         }
     }
 
     pub(crate) fn set_clear_color(&mut self, clear_color: [f32; 4]) {
-        if self.clear_color != clear_color {
-            self.ctx.clear_color(
-                clear_color[0],
-                clear_color[1],
-                clear_color[2],
-                clear_color[3],
-            );
-            self.clear_color = clear_color;
+        unsafe {
+            if self.clear_color != clear_color {
+                self.ctx.clear_color(
+                    clear_color[0],
+                    clear_color[1],
+                    clear_color[2],
+                    clear_color[3],
+                );
+                self.clear_color = clear_color;
+            }
         }
     }
 
     pub(crate) fn set_blending_state(&mut self, state: BlendingState) {
-        if self.blending_state != state {
-            match state {
-                BlendingState::On => self.ctx.enable(glow::Context::BLEND),
-                BlendingState::Off => self.ctx.disable(glow::Context::BLEND),
-            }
+        unsafe {
+            if self.blending_state != state {
+                match state {
+                    BlendingState::On => self.ctx.enable(glow::BLEND),
+                    BlendingState::Off => self.ctx.disable(glow::BLEND),
+                }
 
-            self.blending_state = state;
+                self.blending_state = state;
+            }
         }
     }
 
     pub(crate) fn set_blending_equation(&mut self, equation: Equation) {
-        let equations = BlendingEquations {
-            rgb: equation,
-            alpha: equation,
-        };
+        unsafe {
+            let equations = BlendingEquations {
+                rgb: equation,
+                alpha: equation,
+            };
 
-        if self.blending_equations != equations {
-            self.ctx
-                .blend_equation(blending_equation_to_webgl(equation));
-            self.blending_equations = equations;
+            if self.blending_equations != equations {
+                self.ctx
+                    .blend_equation(blending_equation_to_webgl(equation));
+                self.blending_equations = equations;
+            }
         }
     }
 
@@ -388,34 +414,38 @@ impl GlowState {
         equation_rgb: Equation,
         equation_alpha: Equation,
     ) {
-        let equations = BlendingEquations {
-            rgb: equation_rgb,
-            alpha: equation_alpha,
-        };
+        unsafe {
+            let equations = BlendingEquations {
+                rgb: equation_rgb,
+                alpha: equation_alpha,
+            };
 
-        if self.blending_equations != equations {
-            self.ctx.blend_equation_separate(
-                blending_equation_to_webgl(equation_rgb),
-                blending_equation_to_webgl(equation_alpha),
-            );
+            if self.blending_equations != equations {
+                self.ctx.blend_equation_separate(
+                    blending_equation_to_webgl(equation_rgb),
+                    blending_equation_to_webgl(equation_alpha),
+                );
 
-            self.blending_equations = equations;
+                self.blending_equations = equations;
+            }
         }
     }
 
     pub(crate) fn set_blending_func(&mut self, src: Factor, dst: Factor) {
-        let funcs = BlendingFactors {
-            src_rgb: src,
-            dst_rgb: dst,
-            src_alpha: src,
-            dst_alpha: dst,
-        };
+        unsafe {
+            let funcs = BlendingFactors {
+                src_rgb: src,
+                dst_rgb: dst,
+                src_alpha: src,
+                dst_alpha: dst,
+            };
 
-        if self.blending_funcs != funcs {
-            self.ctx
-                .blend_func(blending_factor_to_webgl(src), blending_factor_to_webgl(dst));
+            if self.blending_funcs != funcs {
+                self.ctx
+                    .blend_func(blending_factor_to_webgl(src), blending_factor_to_webgl(dst));
 
-            self.blending_funcs = funcs;
+                self.blending_funcs = funcs;
+            }
         }
     }
 
@@ -426,123 +456,143 @@ impl GlowState {
         src_alpha: Factor,
         dst_alpha: Factor,
     ) {
-        let funcs = BlendingFactors {
-            src_rgb,
-            dst_rgb,
-            src_alpha,
-            dst_alpha,
-        };
-        if self.blending_funcs != funcs {
-            self.ctx.blend_func_separate(
-                blending_factor_to_webgl(src_rgb),
-                blending_factor_to_webgl(dst_rgb),
-                blending_factor_to_webgl(src_alpha),
-                blending_factor_to_webgl(dst_alpha),
-            );
+        unsafe {
+            let funcs = BlendingFactors {
+                src_rgb,
+                dst_rgb,
+                src_alpha,
+                dst_alpha,
+            };
+            if self.blending_funcs != funcs {
+                self.ctx.blend_func_separate(
+                    blending_factor_to_webgl(src_rgb),
+                    blending_factor_to_webgl(dst_rgb),
+                    blending_factor_to_webgl(src_alpha),
+                    blending_factor_to_webgl(dst_alpha),
+                );
 
-            self.blending_funcs = funcs;
+                self.blending_funcs = funcs;
+            }
         }
     }
 
     pub(crate) fn set_depth_test(&mut self, depth_test: DepthTest) {
-        if self.depth_test != depth_test {
-            match depth_test {
-                DepthTest::On => self.ctx.enable(glow::Context::DEPTH_TEST),
-                DepthTest::Off => self.ctx.disable(glow::Context::DEPTH_TEST),
-            }
+        unsafe {
+            if self.depth_test != depth_test {
+                match depth_test {
+                    DepthTest::On => self.ctx.enable(glow::DEPTH_TEST),
+                    DepthTest::Off => self.ctx.disable(glow::DEPTH_TEST),
+                }
 
-            self.depth_test = depth_test;
+                self.depth_test = depth_test;
+            }
         }
     }
 
     pub(crate) fn set_depth_test_comparison(&mut self, depth_test_comparison: DepthComparison) {
-        if self.depth_test_comparison != depth_test_comparison {
-            self.ctx
-                .depth_func(depth_comparison_to_webgl(depth_test_comparison));
+        unsafe {
+            if self.depth_test_comparison != depth_test_comparison {
+                self.ctx
+                    .depth_func(depth_comparison_to_webgl(depth_test_comparison));
 
-            self.depth_test_comparison = depth_test_comparison;
+                self.depth_test_comparison = depth_test_comparison;
+            }
         }
     }
 
     pub(crate) fn set_depth_write(&mut self, depth_write: DepthWrite) {
-        if self.depth_write != depth_write {
-            let enabled = match depth_write {
-                DepthWrite::On => true,
-                DepthWrite::Off => false,
-            };
+        unsafe {
+            if self.depth_write != depth_write {
+                let enabled = match depth_write {
+                    DepthWrite::On => true,
+                    DepthWrite::Off => false,
+                };
 
-            self.ctx.depth_mask(enabled);
+                self.ctx.depth_mask(enabled);
 
-            self.depth_write = depth_write;
+                self.depth_write = depth_write;
+            }
         }
     }
 
     pub(crate) fn set_face_culling_state(&mut self, state: FaceCullingState) {
-        if self.face_culling_state != state {
-            match state {
-                FaceCullingState::On => self.ctx.enable(glow::Context::CULL_FACE),
-                FaceCullingState::Off => self.ctx.disable(glow::Context::CULL_FACE),
-            }
+        unsafe {
+            if self.face_culling_state != state {
+                match state {
+                    FaceCullingState::On => self.ctx.enable(glow::CULL_FACE),
+                    FaceCullingState::Off => self.ctx.disable(glow::CULL_FACE),
+                }
 
-            self.face_culling_state = state;
+                self.face_culling_state = state;
+            }
         }
     }
 
     pub(crate) fn set_face_culling_order(&mut self, order: FaceCullingOrder) {
-        if self.face_culling_order != order {
-            match order {
-                FaceCullingOrder::CW => self.ctx.front_face(glow::Context::CW),
-                FaceCullingOrder::CCW => self.ctx.front_face(glow::Context::CCW),
-            }
+        unsafe {
+            if self.face_culling_order != order {
+                match order {
+                    FaceCullingOrder::CW => self.ctx.front_face(glow::CW),
+                    FaceCullingOrder::CCW => self.ctx.front_face(glow::CCW),
+                }
 
-            self.face_culling_order = order;
+                self.face_culling_order = order;
+            }
         }
     }
 
     pub(crate) fn set_face_culling_mode(&mut self, mode: FaceCullingMode) {
-        if self.face_culling_mode != mode {
-            match mode {
-                FaceCullingMode::Front => self.ctx.cull_face(glow::Context::FRONT),
-                FaceCullingMode::Back => self.ctx.cull_face(glow::Context::BACK),
-                FaceCullingMode::Both => self.ctx.cull_face(glow::Context::FRONT_AND_BACK),
-            }
+        unsafe {
+            if self.face_culling_mode != mode {
+                match mode {
+                    FaceCullingMode::Front => self.ctx.cull_face(glow::FRONT),
+                    FaceCullingMode::Back => self.ctx.cull_face(glow::BACK),
+                    FaceCullingMode::Both => self.ctx.cull_face(glow::FRONT_AND_BACK),
+                }
 
-            self.face_culling_mode = mode;
+                self.face_culling_mode = mode;
+            }
         }
     }
 
     pub(crate) fn set_scissor_state(&mut self, state: ScissorState) {
-        if self.scissor_state != state {
-            match state {
-                ScissorState::On => self.ctx.enable(glow::Context::SCISSOR_TEST),
-                ScissorState::Off => self.ctx.disable(glow::Context::SCISSOR_TEST),
-            }
+        unsafe {
+            if self.scissor_state != state {
+                match state {
+                    ScissorState::On => self.ctx.enable(glow::SCISSOR_TEST),
+                    ScissorState::Off => self.ctx.disable(glow::SCISSOR_TEST),
+                }
 
-            self.scissor_state = state;
+                self.scissor_state = state;
+            }
         }
     }
 
     pub(crate) fn set_scissor_region(&mut self, region: &ScissorRegion) {
-        if self.scissor_region != *region {
-            let ScissorRegion {
-                x,
-                y,
-                width,
-                height,
-            } = *region;
+        unsafe {
+            if self.scissor_region != *region {
+                let ScissorRegion {
+                    x,
+                    y,
+                    width,
+                    height,
+                } = *region;
 
-            self.ctx
-                .scissor(x as i32, y as i32, width as i32, height as i32);
-            self.scissor_region = *region;
+                self.ctx
+                    .scissor(x as i32, y as i32, width as i32, height as i32);
+                self.scissor_region = *region;
+            }
         }
     }
 }
 
 impl Drop for GlowState {
     fn drop(&mut self) {
-        // drop the readback framebuffer if it was allocated
-        self.ctx
-            .delete_framebuffer(self.readback_framebuffer.as_ref());
+        unsafe {
+            // drop the readback framebuffer if it was allocated
+            self.readback_framebuffer
+                .map(|x| self.ctx.delete_framebuffer(x));
+        }
     }
 }
 
@@ -682,7 +732,7 @@ impl fmt::Display for StateQueryError {
 impl std::error::Error for StateQueryError {}
 
 fn get_ctx_viewport(ctx: &mut glow::Context) -> Result<[i32; 4], StateQueryError> {
-    let viewport = [0; 4];
+    let mut viewport = [0; 4];
 
     unsafe { ctx.get_parameter_i32_slice(glow::VIEWPORT, &mut viewport) };
 
@@ -690,216 +740,214 @@ fn get_ctx_viewport(ctx: &mut glow::Context) -> Result<[i32; 4], StateQueryError
 }
 
 fn get_ctx_clear_color(ctx: &mut glow::Context) -> Result<[f32; 4], StateQueryError> {
-    let color = [0.0; 4];
+    let mut color = [0.0; 4];
 
-    unsafe { ctx.get_parameter_i32_slice(glow::COLOR_CLEAR_VALUE, &mut viewport) };
+    unsafe { ctx.get_parameter_f32_slice(glow::COLOR_CLEAR_VALUE, &mut color) };
 
     Ok(color)
 }
 
 fn get_ctx_blending_state(ctx: &mut glow::Context) -> BlendingState {
-    if ctx.is_enabled(glow::Context::BLEND) {
-        BlendingState::On
-    } else {
-        BlendingState::Off
+    unsafe {
+        if ctx.is_enabled(glow::BLEND) {
+            BlendingState::On
+        } else {
+            BlendingState::Off
+        }
     }
 }
 
 fn get_ctx_blending_equations(
     ctx: &mut glow::Context,
 ) -> Result<BlendingEquations, StateQueryError> {
-    let rgb = ctx
-        .get_webgl_param(glow::Context::BLEND_EQUATION_RGB)
-        .ok_or_else(|| StateQueryError::CannotRetrieveBlendingEquationRGB)
-        .and_then(map_enum_to_blending_equation)?;
-    let alpha = ctx
-        .get_webgl_param(glow::Context::BLEND_EQUATION_ALPHA)
-        .ok_or_else(|| StateQueryError::CannotRetrieveBlendingEquationAlpha)
-        .and_then(map_enum_to_blending_equation)?;
+    unsafe {
+        let rgb =
+            map_enum_to_blending_equation(ctx.get_parameter_i32(glow::BLEND_EQUATION_RGB) as u32)?;
 
-    Ok(BlendingEquations { rgb, alpha })
+        let alpha = map_enum_to_blending_equation(
+            ctx.get_parameter_i32(glow::BLEND_EQUATION_ALPHA) as u32,
+        )?;
+
+        Ok(BlendingEquations { rgb, alpha })
+    }
 }
 
 #[inline]
 fn map_enum_to_blending_equation(data: u32) -> Result<Equation, StateQueryError> {
     match data {
-        glow::Context::FUNC_ADD => Ok(Equation::Additive),
-        glow::Context::FUNC_SUBTRACT => Ok(Equation::Subtract),
-        glow::Context::FUNC_REVERSE_SUBTRACT => Ok(Equation::ReverseSubtract),
-        glow::Context::MIN => Ok(Equation::Min),
-        glow::Context::MAX => Ok(Equation::Max),
+        glow::FUNC_ADD => Ok(Equation::Additive),
+        glow::FUNC_SUBTRACT => Ok(Equation::Subtract),
+        glow::FUNC_REVERSE_SUBTRACT => Ok(Equation::ReverseSubtract),
+        glow::MIN => Ok(Equation::Min),
+        glow::MAX => Ok(Equation::Max),
         _ => Err(StateQueryError::UnknownBlendingEquation(data)),
     }
 }
 
 fn get_ctx_blending_factors(ctx: &mut glow::Context) -> Result<BlendingFactors, StateQueryError> {
-    let src_rgb = ctx
-        .get_webgl_param(glow::Context::BLEND_SRC_RGB)
-        .ok_or_else(|| StateQueryError::CannotRetrieveBlendingSrcFactorRGB)?;
-    let src_rgb =
-        from_gl_blending_factor(src_rgb).map_err(StateQueryError::UnknownBlendingSrcFactorRGB)?;
+    unsafe {
+        let src_rgb = ctx.get_parameter_i32(glow::BLEND_SRC_RGB) as u32;
+        let src_rgb = from_gl_blending_factor(src_rgb)
+            .map_err(StateQueryError::UnknownBlendingSrcFactorRGB)?;
 
-    let src_alpha = ctx
-        .get_webgl_param(glow::Context::BLEND_SRC_ALPHA)
-        .ok_or_else(|| StateQueryError::CannotRetrieveBlendingSrcFactorAlpha)?;
-    let src_alpha = from_gl_blending_factor(src_alpha)
-        .map_err(StateQueryError::UnknownBlendingSrcFactorAlpha)?;
+        let src_alpha = ctx.get_parameter_i32(glow::BLEND_SRC_ALPHA) as u32;
+        let src_alpha = from_gl_blending_factor(src_alpha)
+            .map_err(StateQueryError::UnknownBlendingSrcFactorAlpha)?;
 
-    let dst_rgb = ctx
-        .get_webgl_param(glow::Context::BLEND_DST_RGB)
-        .ok_or_else(|| StateQueryError::CannotRetrieveBlendingDstFactorRGB)?;
-    let dst_rgb =
-        from_gl_blending_factor(dst_rgb).map_err(StateQueryError::UnknownBlendingDstFactorRGB)?;
+        let dst_rgb = ctx.get_parameter_i32(glow::BLEND_DST_RGB) as u32;
+        let dst_rgb = from_gl_blending_factor(dst_rgb)
+            .map_err(StateQueryError::UnknownBlendingDstFactorRGB)?;
 
-    let dst_alpha = ctx
-        .get_webgl_param(glow::Context::BLEND_DST_ALPHA)
-        .ok_or_else(|| StateQueryError::CannotRetrieveBlendingDstFactorAlpha)?;
-    let dst_alpha = from_gl_blending_factor(dst_alpha)
-        .map_err(StateQueryError::UnknownBlendingDstFactorAlpha)?;
+        let dst_alpha = ctx.get_parameter_i32(glow::BLEND_DST_ALPHA) as u32;
+        let dst_alpha = from_gl_blending_factor(dst_alpha)
+            .map_err(StateQueryError::UnknownBlendingDstFactorAlpha)?;
 
-    Ok(BlendingFactors {
-        src_rgb,
-        dst_rgb,
-        src_alpha,
-        dst_alpha,
-    })
+        Ok(BlendingFactors {
+            src_rgb,
+            dst_rgb,
+            src_alpha,
+            dst_alpha,
+        })
+    }
 }
 
 #[inline]
 fn from_gl_blending_factor(factor: u32) -> Result<Factor, u32> {
     match factor {
-        glow::Context::ONE => Ok(Factor::One),
-        glow::Context::ZERO => Ok(Factor::Zero),
-        glow::Context::SRC_COLOR => Ok(Factor::SrcColor),
-        glow::Context::ONE_MINUS_SRC_COLOR => Ok(Factor::SrcColorComplement),
-        glow::Context::DST_COLOR => Ok(Factor::DestColor),
-        glow::Context::ONE_MINUS_DST_COLOR => Ok(Factor::DestColorComplement),
-        glow::Context::SRC_ALPHA => Ok(Factor::SrcAlpha),
-        glow::Context::ONE_MINUS_SRC_ALPHA => Ok(Factor::SrcAlphaComplement),
-        glow::Context::DST_ALPHA => Ok(Factor::DstAlpha),
-        glow::Context::ONE_MINUS_DST_ALPHA => Ok(Factor::DstAlphaComplement),
-        glow::Context::SRC_ALPHA_SATURATE => Ok(Factor::SrcAlphaSaturate),
+        glow::ONE => Ok(Factor::One),
+        glow::ZERO => Ok(Factor::Zero),
+        glow::SRC_COLOR => Ok(Factor::SrcColor),
+        glow::ONE_MINUS_SRC_COLOR => Ok(Factor::SrcColorComplement),
+        glow::DST_COLOR => Ok(Factor::DestColor),
+        glow::ONE_MINUS_DST_COLOR => Ok(Factor::DestColorComplement),
+        glow::SRC_ALPHA => Ok(Factor::SrcAlpha),
+        glow::ONE_MINUS_SRC_ALPHA => Ok(Factor::SrcAlphaComplement),
+        glow::DST_ALPHA => Ok(Factor::DstAlpha),
+        glow::ONE_MINUS_DST_ALPHA => Ok(Factor::DstAlphaComplement),
+        glow::SRC_ALPHA_SATURATE => Ok(Factor::SrcAlphaSaturate),
         _ => Err(factor),
     }
 }
 
 fn get_ctx_depth_test(ctx: &mut glow::Context) -> DepthTest {
-    let enabled = ctx.is_enabled(glow::Context::DEPTH_TEST);
+    unsafe {
+        let enabled = ctx.is_enabled(glow::DEPTH_TEST);
 
-    if enabled {
-        DepthTest::On
-    } else {
-        DepthTest::Off
+        if enabled {
+            DepthTest::On
+        } else {
+            DepthTest::Off
+        }
     }
 }
 
 fn get_ctx_depth_write(ctx: &mut glow::Context) -> Result<DepthWrite, StateQueryError> {
-    let enabled = ctx
-        .get_webgl_param(glow::Context::DEPTH_WRITEMASK)
-        .ok_or_else(|| StateQueryError::UnknownDepthWriteMaskState)?;
+    unsafe {
+        let enabled = ctx.get_parameter_i32(glow::DEPTH_WRITEMASK) != 0;
 
-    if enabled {
-        Ok(DepthWrite::On)
-    } else {
-        Ok(DepthWrite::Off)
+        if enabled {
+            Ok(DepthWrite::On)
+        } else {
+            Ok(DepthWrite::Off)
+        }
     }
 }
 
 fn get_ctx_face_culling_state(ctx: &mut glow::Context) -> FaceCullingState {
-    let enabled = ctx.is_enabled(glow::Context::CULL_FACE);
+    unsafe {
+        let enabled = ctx.is_enabled(glow::CULL_FACE);
 
-    if enabled {
-        FaceCullingState::On
-    } else {
-        FaceCullingState::Off
+        if enabled {
+            FaceCullingState::On
+        } else {
+            FaceCullingState::Off
+        }
     }
 }
 
 fn get_ctx_face_culling_order(
     ctx: &mut glow::Context,
 ) -> Result<FaceCullingOrder, StateQueryError> {
-    let order = ctx
-        .get_webgl_param(glow::Context::FRONT_FACE)
-        .ok_or_else(|| StateQueryError::UnknownFaceCullingOrder)?;
+    unsafe {
+        let order = ctx.get_parameter_i32(glow::FRONT_FACE) as u32;
 
-    match order {
-        glow::Context::CCW => Ok(FaceCullingOrder::CCW),
-        glow::Context::CW => Ok(FaceCullingOrder::CW),
-        _ => Err(StateQueryError::UnknownFaceCullingOrder),
+        match order {
+            glow::CCW => Ok(FaceCullingOrder::CCW),
+            glow::CW => Ok(FaceCullingOrder::CW),
+            _ => Err(StateQueryError::UnknownFaceCullingOrder),
+        }
     }
 }
 
 fn get_ctx_face_culling_mode(ctx: &mut glow::Context) -> Result<FaceCullingMode, StateQueryError> {
-    let mode = ctx
-        .get_webgl_param(glow::Context::CULL_FACE_MODE)
-        .ok_or_else(|| StateQueryError::UnknownFaceCullingMode)?;
+    unsafe {
+        let mode = ctx.get_parameter_i32(glow::CULL_FACE_MODE) as u32;
 
-    match mode {
-        glow::Context::FRONT => Ok(FaceCullingMode::Front),
-        glow::Context::BACK => Ok(FaceCullingMode::Back),
-        glow::Context::FRONT_AND_BACK => Ok(FaceCullingMode::Both),
-        _ => Err(StateQueryError::UnknownFaceCullingMode),
+        match mode {
+            glow::FRONT => Ok(FaceCullingMode::Front),
+            glow::BACK => Ok(FaceCullingMode::Back),
+            glow::FRONT_AND_BACK => Ok(FaceCullingMode::Both),
+            _ => Err(StateQueryError::UnknownFaceCullingMode),
+        }
     }
 }
 
 fn get_ctx_scissor_state(ctx: &mut glow::Context) -> Result<ScissorState, StateQueryError> {
-    let state = if ctx.is_enabled(glow::Context::SCISSOR_TEST) {
-        ScissorState::On
-    } else {
-        ScissorState::Off
-    };
+    unsafe {
+        let state = if ctx.is_enabled(glow::SCISSOR_TEST) {
+            ScissorState::On
+        } else {
+            ScissorState::Off
+        };
 
-    Ok(state)
+        Ok(state)
+    }
 }
 
 fn get_ctx_scissor_region(ctx: &mut glow::Context) -> Result<ScissorRegion, StateQueryError> {
-    let parameter = ctx
-        .get_parameter(glow::Context::SCISSOR_BOX)
-        .map_err(|_| StateQueryError::UnknownViewportInitialState)?;
-    let array: Uint32Array = parameter.into();
+    unsafe {
+        let mut region = [0; 4];
+        ctx.get_parameter_i32_slice(glow::SCISSOR_BOX, &mut region);
 
-    if array.length() != 4 {
-        return Err(StateQueryError::UnknownScissorRegionInitialState);
+        Ok(ScissorRegion {
+            x: region[0] as u32,
+            y: region[1] as u32,
+            width: region[2] as u32,
+            height: region[3] as u32,
+        })
     }
-
-    let mut region = [0; 4];
-    array.copy_to(&mut region); // safe thanks to the test above on array.length() above
-
-    Ok(ScissorRegion {
-        x: region[0],
-        y: region[1],
-        width: region[2],
-        height: region[3],
-    })
 }
 
-fn load_webgl2_extensions(ctx: &mut glow::Context) -> Result<(), StateQueryError> {
-    let required_extensions = [
-        "OES_texture_float_linear",
-        "EXT_color_buffer_float",
-        "EXT_float_blend",
-    ];
+// I think that Glow handles this for us, though I don't know exactly what will happen if we don't
+// have the exensions that we need.
+//
+// fn load_webgl2_extensions(ctx: &mut glow::Context) -> Result<(), StateQueryError> {
+//     let required_extensions = [
+//         "OES_texture_float_linear",
+//         "EXT_color_buffer_float",
+//         "EXT_float_blend",
+//     ];
 
-    let available_extensions: Vec<&str> = required_extensions
-        .iter()
-        .map(|ext| (*ext, ctx.get_extension(ext)))
-        .flat_map(|(ext, result)| result.ok().flatten().map(|_| ext))
-        .collect();
+//     let available_extensions: Vec<&str> = required_extensions
+//         .iter()
+//         .map(|ext| (*ext, ctx.get_extension(ext)))
+//         .flat_map(|(ext, result)| result.ok().flatten().map(|_| ext))
+//         .collect();
 
-    if available_extensions.len() < required_extensions.len() {
-        let missing_extensions: Vec<String> = required_extensions
-            .iter()
-            .filter(|e| !available_extensions.contains(e))
-            .map(|e| e.to_string())
-            .collect();
+//     if available_extensions.len() < required_extensions.len() {
+//         let missing_extensions: Vec<String> = required_extensions
+//             .iter()
+//             .filter(|e| !available_extensions.contains(e))
+//             .map(|e| e.to_string())
+//             .collect();
 
-        return Err(StateQueryError::CannotRetrieveRequiredWebGL2Extensions(
-            missing_extensions,
-        ));
-    }
+//         return Err(StateQueryError::CannotRetrieveRequiredWebGL2Extensions(
+//             missing_extensions,
+//         ));
+//     }
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 /// Should the binding be cached or forced to the provided value?
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -952,62 +1000,42 @@ pub(crate) enum FaceCullingState {
 #[inline]
 fn depth_comparison_to_webgl(dc: DepthComparison) -> u32 {
     match dc {
-        DepthComparison::Never => glow::Context::NEVER,
-        DepthComparison::Always => glow::Context::ALWAYS,
-        DepthComparison::Equal => glow::Context::EQUAL,
-        DepthComparison::NotEqual => glow::Context::NOTEQUAL,
-        DepthComparison::Less => glow::Context::LESS,
-        DepthComparison::LessOrEqual => glow::Context::LEQUAL,
-        DepthComparison::Greater => glow::Context::GREATER,
-        DepthComparison::GreaterOrEqual => glow::Context::GEQUAL,
+        DepthComparison::Never => glow::NEVER,
+        DepthComparison::Always => glow::ALWAYS,
+        DepthComparison::Equal => glow::EQUAL,
+        DepthComparison::NotEqual => glow::NOTEQUAL,
+        DepthComparison::Less => glow::LESS,
+        DepthComparison::LessOrEqual => glow::LEQUAL,
+        DepthComparison::Greater => glow::GREATER,
+        DepthComparison::GreaterOrEqual => glow::GEQUAL,
     }
 }
 
 #[inline]
 fn blending_equation_to_webgl(equation: Equation) -> u32 {
     match equation {
-        Equation::Additive => glow::Context::FUNC_ADD,
-        Equation::Subtract => glow::Context::FUNC_SUBTRACT,
-        Equation::ReverseSubtract => glow::Context::FUNC_REVERSE_SUBTRACT,
-        Equation::Min => glow::Context::MIN,
-        Equation::Max => glow::Context::MAX,
+        Equation::Additive => glow::FUNC_ADD,
+        Equation::Subtract => glow::FUNC_SUBTRACT,
+        Equation::ReverseSubtract => glow::FUNC_REVERSE_SUBTRACT,
+        Equation::Min => glow::MIN,
+        Equation::Max => glow::MAX,
     }
 }
 
 #[inline]
 fn blending_factor_to_webgl(factor: Factor) -> u32 {
     match factor {
-        Factor::One => glow::Context::ONE,
-        Factor::Zero => glow::Context::ZERO,
-        Factor::SrcColor => glow::Context::SRC_COLOR,
-        Factor::SrcColorComplement => glow::Context::ONE_MINUS_SRC_COLOR,
-        Factor::DestColor => glow::Context::DST_COLOR,
-        Factor::DestColorComplement => glow::Context::ONE_MINUS_DST_COLOR,
-        Factor::SrcAlpha => glow::Context::SRC_ALPHA,
-        Factor::SrcAlphaComplement => glow::Context::ONE_MINUS_SRC_ALPHA,
-        Factor::DstAlpha => glow::Context::DST_ALPHA,
-        Factor::DstAlphaComplement => glow::Context::ONE_MINUS_DST_ALPHA,
-        Factor::SrcAlphaSaturate => glow::Context::SRC_ALPHA_SATURATE,
-    }
-}
-
-// Workaround around the lack of implementor for [`TryFrom`] on [`JsValue`].
-trait GetWebGLParam<T> {
-    fn get_webgl_param(&mut self, param: u32) -> Option<T>;
-}
-
-impl GetWebGLParam<u32> for glow::Context {
-    fn get_webgl_param(&mut self, param: u32) -> Option<u32> {
-        self.get_parameter(param)
-            .ok()
-            .and_then(|x| x.as_f64())
-            .map(|x| x as u32)
-    }
-}
-
-impl GetWebGLParam<bool> for glow::Context {
-    fn get_webgl_param(&mut self, param: u32) -> Option<bool> {
-        self.get_parameter(param).ok().and_then(|x| x.as_bool())
+        Factor::One => glow::ONE,
+        Factor::Zero => glow::ZERO,
+        Factor::SrcColor => glow::SRC_COLOR,
+        Factor::SrcColorComplement => glow::ONE_MINUS_SRC_COLOR,
+        Factor::DestColor => glow::DST_COLOR,
+        Factor::DestColorComplement => glow::ONE_MINUS_DST_COLOR,
+        Factor::SrcAlpha => glow::SRC_ALPHA,
+        Factor::SrcAlphaComplement => glow::ONE_MINUS_SRC_ALPHA,
+        Factor::DstAlpha => glow::DST_ALPHA,
+        Factor::DstAlphaComplement => glow::ONE_MINUS_DST_ALPHA,
+        Factor::SrcAlphaSaturate => glow::SRC_ALPHA_SATURATE,
     }
 }
 

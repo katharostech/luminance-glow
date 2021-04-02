@@ -1,6 +1,5 @@
 //! Glow Backend support
 
-mod array_buffer;
 pub mod buffer;
 pub mod framebuffer;
 pub mod pipeline;
@@ -10,9 +9,8 @@ pub mod state;
 pub mod tess;
 pub mod texture;
 
-pub use crate::glow_backend::array_buffer::IntoArrayBuffer;
-pub use crate::glow_backend::state::StateQueryError;
 use crate::glow_backend::state::GlowState;
+pub use crate::glow_backend::state::StateQueryError;
 use std::cell::RefCell;
 use std::rc::Rc;
 
