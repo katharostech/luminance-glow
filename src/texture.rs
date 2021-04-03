@@ -574,7 +574,7 @@ impl<T: AsRef<[U]>, U> SliceAsBytes<U> for T {
         unsafe {
             std::slice::from_raw_parts(
                 self.as_ref().as_ptr() as *const u8,
-                std::mem::size_of::<T>() * self.as_ref().len(),
+                std::mem::size_of::<T>() / 8 * self.as_ref().len(),
             )
         }
     }
