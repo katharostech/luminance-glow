@@ -25,22 +25,34 @@ use glow::Context as GlowContext;
 use state::GlowState;
 pub use state::StateQueryError;
 
+/// The GLSL shader version to use
+///
+/// This effects the version heading added automatically to the top of the shader strings provided
+/// to luminance.
+#[derive(Debug, Clone, Copy)]
+pub enum ShaderVersion {
+    Gles3,
+    Gles1,
+}
+
 /// The graphics context which must be provided to create a [`Glow`] backend
 pub struct Context {
     glow_context: GlowContext,
     is_webgl1: bool,
+    shader_version: ShaderVersion,
 }
 
 impl Context {
     /// Create a native context from a GL loader function
     #[cfg(not(wasm))]
-    pub unsafe fn from_loader_function<F>(mut loader_function: F) -> Self
+    pub unsafe fn from_loader_function<F>(loader_function: F, shader_version: ShaderVersion) -> Self
     where
         F: FnMut(&str) -> *const std::os::raw::c_void,
     {
         Self {
             glow_context: GlowContext::from_loader_function(loader_function),
             is_webgl1: false,
+            shader_version,
         }
     }
 
@@ -54,15 +66,20 @@ impl Context {
         Self {
             glow_context: GlowContext::from_webgl1_context(context),
             is_webgl1: true,
+            shader_version: ShaderVersion::Gles1,
         }
     }
 
     /// Create a WebGL 2 context
     #[cfg(wasm)]
-    pub fn from_webgl2_context(context: web_sys::WebGl2RenderingContext) -> Self {
+    pub fn from_webgl2_context(
+        context: web_sys::WebGl2RenderingContext,
+        shader_version: ShaderVersion,
+    ) -> Self {
         Self {
             glow_context: GlowContext::from_webgl2_context(context),
             is_webgl1: false,
+            shader_version,
         }
     }
 }
@@ -71,7 +88,6 @@ impl Context {
 #[derive(Debug)]
 pub struct Glow {
     pub(crate) state: Rc<RefCell<GlowState>>,
-    pub(crate) is_webgl1: bool,
 }
 
 impl Glow {
@@ -80,10 +96,10 @@ impl Glow {
         let Context {
             glow_context,
             is_webgl1,
+            shader_version,
         } = ctx;
-        GlowState::new(glow_context, is_webgl1).map(|state| Glow {
+        GlowState::new(glow_context, is_webgl1, shader_version).map(|state| Glow {
             state: Rc::new(RefCell::new(state)),
-            is_webgl1,
         })
     }
 }

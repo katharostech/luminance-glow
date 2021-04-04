@@ -9,6 +9,8 @@ use luminance::{
 };
 use std::{fmt, marker::PhantomData};
 
+use crate::ShaderVersion;
+
 #[derive(Debug)]
 pub(crate) struct BindingStack {
     pub(crate) next_texture_unit: u32,
@@ -108,6 +110,7 @@ pub struct GlowState {
 
     // Whether or not this is a WebGL1 state
     pub(crate) is_webgl1: bool,
+    pub(crate) shader_version: ShaderVersion,
 }
 
 impl GlowState {
@@ -116,12 +119,20 @@ impl GlowState {
     /// > Note: keep in mind you can create only one per thread. However, if you’re building without
     /// > standard library, this function will always return successfully. You have to take extra care
     /// > in this case.
-    pub(crate) fn new(ctx: glow::Context, is_webgl1: bool) -> Result<Self, StateQueryError> {
-        Self::get_from_context(ctx, is_webgl1)
+    pub(crate) fn new(
+        ctx: glow::Context,
+        is_webgl1: bool,
+        shader_version: ShaderVersion,
+    ) -> Result<Self, StateQueryError> {
+        Self::get_from_context(ctx, is_webgl1, shader_version)
     }
 
     /// Get a `GraphicsContext` from the current OpenGL context.
-    fn get_from_context(mut ctx: glow::Context, is_webgl1: bool) -> Result<Self, StateQueryError> {
+    fn get_from_context(
+        mut ctx: glow::Context,
+        is_webgl1: bool,
+        shader_version: ShaderVersion,
+    ) -> Result<Self, StateQueryError> {
         let binding_stack = BindingStack::new();
         let viewport = get_ctx_viewport(&mut ctx)?;
         let clear_color = get_ctx_clear_color(&mut ctx)?;
@@ -178,6 +189,7 @@ impl GlowState {
             bound_vertex_array,
             current_program,
             is_webgl1,
+            shader_version,
         })
     }
 

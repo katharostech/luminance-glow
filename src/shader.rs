@@ -13,8 +13,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::state::GlowState;
 use crate::Glow;
+use crate::{state::GlowState, ShaderVersion};
 use glow::HasContext;
 
 #[derive(Debug)]
@@ -47,7 +47,7 @@ impl Stage {
 
             state
                 .ctx
-                .shader_source(handle, &patch_shader_src(src, glow_backend.is_webgl1));
+                .shader_source(handle, &patch_shader_src(src, state.shader_version));
             state.ctx.compile_shader(handle);
 
             let compiled = state.ctx.get_shader_compile_status(handle);
@@ -306,19 +306,18 @@ fn glow_shader_type(ty: StageType) -> Option<u32> {
     }
 }
 
-const WEBGL1_GLSL_PRAGMA: &str = "#version 100\n\
+const GLSL1_PRAGMA: &str = "#version 100\n\
                            precision highp float;\n\
                            precision highp int;\n";
-const GLSL_PRAGMA: &str = "#version 300 es\n\
+const GLSL3_PRAGMA: &str = "#version 300 es\n\
                            precision highp float;\n\
                            precision highp int;\n";
 
-fn patch_shader_src(src: &str, is_webgl1: bool) -> String {
+fn patch_shader_src(src: &str, shader_version: ShaderVersion) -> String {
     let mut pragma;
-    if is_webgl1 {
-        pragma = String::from(WEBGL1_GLSL_PRAGMA);
-    } else {
-        pragma = String::from(GLSL_PRAGMA);
+    match shader_version {
+        ShaderVersion::Gles3 => pragma = String::from(GLSL3_PRAGMA),
+        ShaderVersion::Gles1 => pragma = String::from(GLSL1_PRAGMA),
     }
     pragma.push_str(src);
     pragma

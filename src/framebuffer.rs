@@ -69,7 +69,7 @@ where
         state.reserve_textures(textures_needed);
 
         // color textures
-        if !self.is_webgl1 {
+        if !state.is_webgl1 {
             if color_formats.is_empty() {
                 state.ctx.draw_buffers(&[glow::NONE]);
             } else {
@@ -99,7 +99,7 @@ where
 
             state.ctx.renderbuffer_storage(
                 glow::RENDERBUFFER,
-                if self.is_webgl1 {
+                if state.is_webgl1 {
                     glow::DEPTH_COMPONENT16
                 } else {
                     glow::DEPTH_COMPONENT32F
