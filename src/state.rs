@@ -105,6 +105,9 @@ pub struct GlowState {
     bound_vertex_array: Option<glow::VertexArray>,
     // shader program
     current_program: Option<glow::Program>,
+
+    // Whether or not this is a WebGL1 state
+    pub(crate) is_webgl1: bool,
 }
 
 impl GlowState {
@@ -113,12 +116,12 @@ impl GlowState {
     /// > Note: keep in mind you can create only one per thread. However, if you’re building without
     /// > standard library, this function will always return successfully. You have to take extra care
     /// > in this case.
-    pub(crate) fn new(ctx: glow::Context) -> Result<Self, StateQueryError> {
-        Self::get_from_context(ctx)
+    pub(crate) fn new(ctx: glow::Context, is_webgl1: bool) -> Result<Self, StateQueryError> {
+        Self::get_from_context(ctx, is_webgl1)
     }
 
     /// Get a `GraphicsContext` from the current OpenGL context.
-    fn get_from_context(mut ctx: glow::Context) -> Result<Self, StateQueryError> {
+    fn get_from_context(mut ctx: glow::Context, is_webgl1: bool) -> Result<Self, StateQueryError> {
         let binding_stack = BindingStack::new();
         let viewport = get_ctx_viewport(&mut ctx)?;
         let clear_color = get_ctx_clear_color(&mut ctx)?;
@@ -148,7 +151,7 @@ impl GlowState {
 
         Ok(GlowState {
             _phantom: PhantomData,
-            ctx,
+            ctx: ctx,
             binding_stack,
             viewport,
             clear_color,
@@ -174,6 +177,7 @@ impl GlowState {
             readback_framebuffer,
             bound_vertex_array,
             current_program,
+            is_webgl1,
         })
     }
 

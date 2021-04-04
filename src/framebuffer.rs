@@ -69,17 +69,21 @@ where
         state.reserve_textures(textures_needed);
 
         // color textures
-        if color_formats.is_empty() {
-            state.ctx.draw_buffers(&[glow::NONE]);
-        } else {
-            // Specify the list of color buffers to draw to; to do so, we need to generate a temporary
-            // list (Vec) of 32-bit integers and turn it into a Uint32Array to pass it across WASM
-            // boundary.
-            let color_buf_nb = color_formats.len() as u32;
-            let color_buffers: Vec<_> =
-                (glow::COLOR_ATTACHMENT0..glow::COLOR_ATTACHMENT0 + color_buf_nb).collect();
+        if !self.is_webgl1 {
+            if color_formats.is_empty() {
+                state.ctx.draw_buffers(&[glow::NONE]);
+            } else {
+                // Specify the list of color buffers to draw to; to do so, we need to generate a temporary
+                // list (Vec) of 32-bit integers and turn it into a Uint32Array to pass it across WASM
+                // boundary.
+                let color_buf_nb = color_formats.len() as u32;
+                let color_buffers: Vec<_> =
+                    (glow::COLOR_ATTACHMENT0..glow::COLOR_ATTACHMENT0 + color_buf_nb).collect();
 
-            state.ctx.draw_buffers(color_buffers.as_ref());
+                state.ctx.draw_buffers(color_buffers.as_ref());
+            }
+        } else if color_formats.len() > 1 {
+            panic!("Multiple color buffers not supported in WebGL1");
         }
 
         // depth texture
@@ -95,7 +99,11 @@ where
 
             state.ctx.renderbuffer_storage(
                 glow::RENDERBUFFER,
-                glow::DEPTH_COMPONENT32F,
+                if self.is_webgl1 {
+                    glow::DEPTH_COMPONENT16
+                } else {
+                    glow::DEPTH_COMPONENT32F
+                },
                 D::width(size) as i32,
                 D::height(size) as i32,
             );

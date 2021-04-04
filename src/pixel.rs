@@ -1,7 +1,7 @@
 use luminance::pixel::{Format, PixelFormat, Size, Type};
 
 // Glow format, internal sized-format and type.
-pub(crate) fn glow_pixel_format(pf: PixelFormat) -> Option<(u32, u32, u32)> {
+pub(crate) fn glow_pixel_format(pf: PixelFormat, is_webgl1: bool) -> Option<(u32, u32, u32)> {
     match (pf.format, pf.encoding) {
         // red channel
         (Format::R(Size::Eight), Type::NormUnsigned) => {
@@ -118,7 +118,11 @@ pub(crate) fn glow_pixel_format(pf: PixelFormat) -> Option<(u32, u32, u32)> {
 
         // red, blue, green, alpha channels
         (Format::RGBA(Size::Eight, Size::Eight, Size::Eight, Size::Eight), Type::NormUnsigned) => {
-            Some((glow::RGBA, glow::RGBA8, glow::UNSIGNED_BYTE))
+            if is_webgl1 {
+                Some((glow::RGBA, glow::RGBA, glow::UNSIGNED_BYTE))
+            } else {
+                Some((glow::RGBA, glow::RGBA8, glow::UNSIGNED_BYTE))
+            }
         }
         (Format::RGBA(Size::Eight, Size::Eight, Size::Eight, Size::Eight), Type::NormIntegral) => {
             Some((glow::RGBA, glow::RGBA8_SNORM, glow::BYTE))
@@ -127,7 +131,11 @@ pub(crate) fn glow_pixel_format(pf: PixelFormat) -> Option<(u32, u32, u32)> {
             Some((glow::RGBA_INTEGER, glow::RGBA8I, glow::BYTE))
         }
         (Format::RGBA(Size::Eight, Size::Eight, Size::Eight, Size::Eight), Type::Unsigned) => {
-            Some((glow::RGBA_INTEGER, glow::RGBA8UI, glow::UNSIGNED_BYTE))
+            if is_webgl1 {
+                Some((glow::RGBA_INTEGER, glow::RGBA, glow::UNSIGNED_BYTE))
+            } else {
+                Some((glow::RGBA_INTEGER, glow::RGBA8UI, glow::UNSIGNED_BYTE))
+            }
         }
 
         (

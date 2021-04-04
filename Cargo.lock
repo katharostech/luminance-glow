@@ -15,8 +15,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "cfg_aliases"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
+
+[[package]]
 name = "glow"
 version = "0.8.1"
+source = "git+https://github.com/katharostech/glow.git?branch=extra-webgl1-functions#cfa6dce731fc5f9905a30970910989b8f2f82391"
 dependencies = [
  "js-sys",
  "slotmap",
@@ -72,8 +79,10 @@ dependencies = [
 name = "luminance-glow"
 version = "0.0.0"
 dependencies = [
+ "cfg_aliases",
  "glow",
  "luminance",
+ "web-sys",
 ]
 
 [[package]]

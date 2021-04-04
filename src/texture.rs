@@ -200,12 +200,12 @@ where
     where
         P::RawEncoding: Copy + Default,
     {
-        let pf = P::pixel_format();
-        let (format, _, ty) =
-            glow_pixel_format(pf).ok_or(TextureError::UnsupportedPixelFormat(pf))?;
-
         let mut gfx_state = texture.state.borrow_mut();
         gfx_state.bind_texture(texture.target, Some(texture.handle));
+
+        let pf = P::pixel_format();
+        let (format, _, ty) = glow_pixel_format(pf, gfx_state.is_webgl1)
+            .ok_or(TextureError::UnsupportedPixelFormat(pf))?;
 
         // Retrieve the size of the texture (w and h); Glow doesn’t support the
         // glGetTexLevelParameteriv function (I know it’s fucking surprising), so we have to implement
@@ -292,30 +292,36 @@ pub(crate) unsafe fn setup_texture<D>(
 where
     D: Dimensionable,
 {
-    set_texture_levels(state, target, mipmaps);
+    if !state.is_webgl1 {
+        set_texture_levels(state, target, mipmaps);
+    }
     apply_sampler_to_texture(state, target, sampler);
     create_texture_storage::<D>(state, size, mipmaps, pf)
 }
 
 fn set_texture_levels(state: &mut GlowState, target: u32, mipmaps: usize) {
-    unsafe {
-        state
-            .ctx
-            .tex_parameter_i32(target, glow::TEXTURE_BASE_LEVEL, 0);
+    if !state.is_webgl1 {
+        unsafe {
+            state
+                .ctx
+                .tex_parameter_i32(target, glow::TEXTURE_BASE_LEVEL, 0);
 
-        state
-            .ctx
-            .tex_parameter_i32(target, glow::TEXTURE_MAX_LEVEL, mipmaps as i32 - 1);
+            state
+                .ctx
+                .tex_parameter_i32(target, glow::TEXTURE_MAX_LEVEL, mipmaps as i32 - 1);
+        }
     }
 }
 
 fn apply_sampler_to_texture(state: &mut GlowState, target: u32, sampler: Sampler) {
     unsafe {
-        state.ctx.tex_parameter_i32(
-            target,
-            glow::TEXTURE_WRAP_R,
-            glow_wrap(sampler.wrap_r) as i32,
-        );
+        if !state.is_webgl1 {
+            state.ctx.tex_parameter_i32(
+                target,
+                glow::TEXTURE_WRAP_R,
+                glow_wrap(sampler.wrap_r) as i32,
+            );
+        }
         state.ctx.tex_parameter_i32(
             target,
             glow::TEXTURE_WRAP_S,
@@ -344,17 +350,23 @@ fn apply_sampler_to_texture(state: &mut GlowState, target: u32, sampler: Sampler
                     glow::TEXTURE_COMPARE_FUNC,
                     glow_depth_comparison(fun) as i32,
                 );
-                state.ctx.tex_parameter_i32(
-                    target,
-                    glow::TEXTURE_COMPARE_MODE,
-                    glow::COMPARE_REF_TO_TEXTURE as i32,
-                );
+                if !state.is_webgl1 {
+                    state.ctx.tex_parameter_i32(
+                        target,
+                        glow::TEXTURE_COMPARE_MODE,
+                        glow::COMPARE_REF_TO_TEXTURE as i32,
+                    );
+                }
             }
 
             None => {
-                state
-                    .ctx
-                    .tex_parameter_i32(target, glow::TEXTURE_COMPARE_MODE, glow::NONE as i32);
+                if !state.is_webgl1 {
+                    state.ctx.tex_parameter_i32(
+                        target,
+                        glow::TEXTURE_COMPARE_MODE,
+                        glow::NONE as i32,
+                    );
+                }
             }
         }
     }
@@ -395,7 +407,7 @@ fn create_texture_storage<D>(
 where
     D: Dimensionable,
 {
-    match glow_pixel_format(pf) {
+    match glow_pixel_format(pf, state.is_webgl1) {
         Some(glf) => {
             let (format, iformat, encoding) = glf;
 
@@ -610,7 +622,7 @@ where
     set_unpack_alignment(state, skip_bytes);
 
     unsafe {
-        match glow_pixel_format(pf) {
+        match glow_pixel_format(pf, state.is_webgl1) {
             Some((format, _, encoding)) => match D::dim() {
                 Dim::Dim2 => {
                     state.ctx.tex_sub_image_2d(
