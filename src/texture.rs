@@ -483,9 +483,25 @@ fn create_texture_2d_storage(
     mipmaps: usize,
 ) -> Result<(), TextureError> {
     unsafe {
-        state
-            .ctx
-            .tex_storage_2d(target, mipmaps as i32, iformat, w as i32, h as i32);
+        if state.is_webgl1 {
+            for i in 0..mipmaps {
+                state.ctx.tex_image_2d(
+                    target,
+                    i as i32,
+                    iformat as i32,
+                    w as i32,
+                    h as i32,
+                    0,
+                    iformat,
+                    glow::UNSIGNED_BYTE, // This may not be correct in all circumstances?
+                    None,
+                )
+            }
+        } else {
+            state
+                .ctx
+                .tex_storage_2d(target, mipmaps as i32, iformat, w as i32, h as i32);
+        }
     }
 
     Ok(())
