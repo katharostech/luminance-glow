@@ -1,8 +1,11 @@
 //! Glow backend for Luminance
 //!
-//! This crate provides a [glow] backend for [luminance].
+//! This crate provides a [glow] backend for [luminance]. It is capable of targeting desktop using
+//! OpenGL and web using both WebGL 2 and WebGL 1 ( though WebGL 1 has some caveats such as
+//! supported texture formats ).
 //!
 //! [luminance]: https://crates.io/crates/luminance
+//!
 //! [glow]: https://github.com/grovesNL/glow
 
 use std::cell::RefCell;
