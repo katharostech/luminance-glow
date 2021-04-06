@@ -14,7 +14,7 @@ edition = "2018"
 
 [dependencies]
 luminance = "0.43"
-glow = { git = "https://github.com/GrovesNL/glow.git", commit = "efac9dd239bd1b818e99180ed7c2652223ca5d5d" }
+glow = { git = "https://github.com/GrovesNL/glow.git", commit = "efac9dd239bd1b818e99180ed7c2652223ca5d5d", branch = "main" }
 web-sys = { version = "0.3.48", features = ["WebGlRenderingContext", "WebGl2RenderingContext"] }
 
 [build-dependencies]
